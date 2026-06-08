@@ -20,11 +20,6 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Install Playwright browsers
-        run: |
-          playwright install chromium
-          playwright install-deps chromium
-
       - name: Run flight monitor
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
