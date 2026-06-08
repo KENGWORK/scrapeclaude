@@ -3,7 +3,7 @@ name: BKK-NRT Flight Monitor
 on:
   schedule:
     - cron: '0 16 * * *'   # 23:00 ICT (UTC+7)
-  workflow_dispatch:         # allow manual run from GitHub UI
+  workflow_dispatch:
 
 jobs:
   check-flights:
@@ -11,11 +11,9 @@ jobs:
     timeout-minutes: 75
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -31,4 +29,6 @@ jobs:
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python flights_monitor.py
