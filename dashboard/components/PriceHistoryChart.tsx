@@ -15,7 +15,7 @@ const AIRLINE_COLORS: Record<string, string> = {
 interface Props { data: FlightRecord[] }
 
 export default function PriceHistoryChart({ data }: Props) {
-  const departureDates = [...new Set(data.map((r) => r.departure_date))].sort();
+  const departureDates = Array.from(new Set(data.map((r) => r.departure_date))).sort();
   const [selected, setSelected] = useState(departureDates[0] ?? "");
 
   const filtered = data.filter((r) => r.departure_date === selected);
