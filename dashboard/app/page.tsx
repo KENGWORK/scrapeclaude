@@ -1,14 +1,39 @@
+import { google } from "googleapis";
 import type { FlightRecord } from "./api/flights/route";
 import RouteView from "@/components/RouteView";
 
 export const revalidate = 3600;
 
-async function fetchRoute(path: string): Promise<FlightRecord[]> {
+async function fetchSheet(range: string): Promise<FlightRecord[]> {
   try {
-    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${base}${path}`, { next: { revalidate: 3600 } });
-    if (!res.ok) return [];
-    return res.json();
+    const credsJson = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    const auth = new google.auth.GoogleAuth({
+      credentials: credsJson,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID!,
+      range,
+    });
+    const rows = res.data.values ?? [];
+    if (rows.length < 2) return [];
+    const headers = rows[0] as string[];
+    return rows.slice(1).map((row) => {
+      const obj: Record<string, string> = {};
+      headers.forEach((h, i) => (obj[h] = row[i] ?? ""));
+      return {
+        scrape_date:    obj.scrape_date,
+        departure_date: obj.departure_date,
+        return_date:    obj.return_date,
+        airline:        obj.airline,
+        price_thb:      Number(obj.price_thb) || 0,
+        dep_time:       obj.dep_time,
+        arr_time:       obj.arr_time,
+        duration:       obj.duration,
+        gf_link:        obj.gf_link,
+      };
+    });
   } catch {
     return [];
   }
@@ -16,8 +41,8 @@ async function fetchRoute(path: string): Promise<FlightRecord[]> {
 
 export default async function HomePage() {
   const [nrtData, cnxData] = await Promise.all([
-    fetchRoute("/api/flights"),
-    fetchRoute("/api/cnx"),
+    fetchSheet("FlightPrices!A:I"),
+    fetchSheet("BKKCNXPrices!A:I"),
   ]);
 
   return (
