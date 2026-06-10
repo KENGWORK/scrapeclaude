@@ -111,8 +111,16 @@ def clean(s: str) -> str:
     return s.replace(chr(0x202f),chr(32)).replace(chr(0xa0),chr(32)).strip()
 
 
-def build_q_url(dep: date, ret: date) -> str:
+# Query name per airline — appended as "with X" so Google filters both
+# legs to that carrier (same airline out and back). Must be a single word:
+# multi-word names break Google's query parsing (falls back to landing page).
+AIRLINE_QUERY = {"ANA": "ANA", "JAL": "JAL", "THAI": "THAI"}
+
+
+def build_q_url(dep: date, ret: date, airline: str | None = None) -> str:
     q = f"Flights to {DEST} from {ORIGIN} on {dep.isoformat()} through {ret.isoformat()}"
+    if airline:
+        q += f" with {AIRLINE_QUERY[airline]}"
     return ("https://www.google.com/travel/flights?q="
             + urllib.parse.quote(q) + "&hl=en-US&curr=THB&gl=TH")
 
@@ -163,7 +171,8 @@ async def _scrape_once(browser: Browser, gf_link: str) -> dict[str, dict | None]
         for _ in range(8):
             await page.wait_for_timeout(4_000)
             body = await page.inner_text("body")
-            if "results returned" in body and "THB" in body:
+            # "1 result returned." is singular — match both forms
+            if re.search(r"\d+\s+results?\s+returned", body) and "THB" in body:
                 break
         return parse_body(body, gf_link)
     finally:
@@ -171,25 +180,32 @@ async def _scrape_once(browser: Browser, gf_link: str) -> dict[str, dict | None]
 
 
 async def scrape_date(browser: Browser, dep_date: date,
-                      max_attempts: int = 3) -> dict[str, dict | None]:
+                      max_attempts: int = 2) -> dict[str, dict | None]:
+    """One filtered query per airline so both legs are on the same carrier."""
     ret_date = dep_date + timedelta(days=STAY_NIGHTS)
-    gf_link = build_q_url(dep_date, ret_date)
     result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
 
-    for attempt in range(1, max_attempts + 1):
-        try:
-            result = await _scrape_once(browser, gf_link)
-            if any(result.values()):     # got at least one airline → done
-                return result
-        except Exception as exc:
-            print(f"  [{dep_date}] attempt {attempt} ERROR: {exc}")
-        # empty/blocked → back off before retrying
-        await asyncio.sleep(random.uniform(8, 15) * attempt)
+    for code in result:
+        gf_link = build_q_url(dep_date, ret_date, airline=code)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                parsed = await _scrape_once(browser, gf_link)
+                if parsed.get(code):
+                    result[code] = parsed[code]
+                    break
+            except Exception as exc:
+                print(f"  [{dep_date}/{code}] attempt {attempt} ERROR: {exc}")
+            await asyncio.sleep(random.uniform(5, 10) * attempt)
+        await asyncio.sleep(random.uniform(1, 3))
 
     return result
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
+
+# Brand colors: ANA blue, JAL red, THAI purple — used in table, chart, best box
+AIRLINE_COLOR = {"ANA": "#1565c0", "JAL": "#d32f2f", "THAI": "#7b1fa2"}
+
 
 def find_best(all_results: dict[date, dict]) -> dict | None:
     """Single cheapest fare across all dates and airlines."""
@@ -214,7 +230,7 @@ def build_best_box(best: dict | None) -> str:
             padding:16px 20px;margin:16px 0">
   <div style="color:#1b5e20;font-size:13px;font-weight:bold">🏆 ช่วงที่ถูกที่สุด</div>
   <div style="font-size:28px;font-weight:900;color:#1b5e20;margin:4px 0">
-    ฿{best['price']:,} <span style="font-size:16px;font-weight:700">({best['airline']})</span>
+    ฿{best['price']:,} <span style="font-size:16px;font-weight:700;color:{AIRLINE_COLOR[best['airline']]}">({best['airline']})</span>
   </div>
   <div style="color:#333;font-size:14px">
     🗓️ ออก <b>{best['dep_date'].strftime('%a %d %b %Y')}</b> →
@@ -244,7 +260,7 @@ def build_html(all_results: dict[date, dict]) -> str:
                       if info['dep_time'] else "")
             link = f'<a href="{info["gf_link"]}" target="_blank">🔗</a>'
             return (f'<td style="text-align:center">'
-                    f'<b style="color:#1b5e20">฿{info["price"]:,}</b><br>'
+                    f'<b style="color:{AIRLINE_COLOR[code]}">฿{info["price"]:,}</b><br>'
                     f'<small style="color:#555">{detail}</small> {link}</td>')
 
         rows += (f"<tr><td>{dep.strftime('%a %d %b')}</td>"
@@ -258,8 +274,12 @@ def build_html(all_results: dict[date, dict]) -> str:
 <h3 style="color:#1565c0;margin-top:20px">📋 ราคาทุกช่วง</h3>
 <table border="1" cellpadding="8" cellspacing="0"
        style="border-collapse:collapse;font-size:13px;min-width:700px">
-  <thead style="background:#1565c0;color:white"><tr>
-    <th>วันออกเดินทาง</th><th>วันกลับ</th><th>ANA</th><th>JAL</th><th>THAI</th>
+  <thead style="color:white"><tr>
+    <th style="background:#37474f">วันออกเดินทาง</th>
+    <th style="background:#37474f">วันกลับ</th>
+    <th style="background:{AIRLINE_COLOR['ANA']}">ANA</th>
+    <th style="background:{AIRLINE_COLOR['JAL']}">JAL</th>
+    <th style="background:{AIRLINE_COLOR['THAI']}">THAI</th>
   </tr></thead>
   <tbody>{rows}</tbody>
 </table>
@@ -269,7 +289,7 @@ def build_html(all_results: dict[date, dict]) -> str:
 </body></html>"""
 
 
-AIRLINE_PLOT = {"ANA": "#1565c0", "JAL": "#d32f2f", "THAI": "#f9a825"}
+AIRLINE_PLOT = AIRLINE_COLOR
 
 
 def build_chart_png(all_results: dict[date, dict]) -> bytes | None:
