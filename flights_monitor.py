@@ -42,7 +42,7 @@ EXCLUDE_THAI = ["vietjet", "airasia", "lion", "smile"]
 
 GMAIL_USER         = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
-RECIPIENT          = "kenglao2903@hotmail.com"
+RECIPIENT          = ["kenglao2903@hotmail.com", "preeyapat.po@gmail.com"]
 
 GOOGLE_SERVICE_ACCOUNT_JSON = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 GOOGLE_SHEET_ID             = os.environ["GOOGLE_SHEET_ID"]
@@ -345,7 +345,7 @@ def send_email(html: str, chart_png: bytes | None):
     root = MIMEMultipart("related")
     root["Subject"] = f"✈️ BKK–NRT ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
     root["From"]    = GMAIL_USER
-    root["To"]      = RECIPIENT
+    root["To"]      = ", ".join(RECIPIENT)
 
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(html, "html", "utf-8"))
@@ -360,7 +360,7 @@ def send_email(html: str, chart_png: bytes | None):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as srv:
         srv.login(GMAIL_USER, GMAIL_APP_PASSWORD)
         srv.sendmail(GMAIL_USER, RECIPIENT, root.as_string())
-    print(f"✅ Email sent → {RECIPIENT}")
+    print(f"✅ Email sent → {', '.join(RECIPIENT)}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
