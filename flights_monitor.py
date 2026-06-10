@@ -157,7 +157,14 @@ def parse_body(text: str, gf_link: str) -> dict[str, dict | None]:
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
-async def _scrape_once(browser: Browser, gf_link: str) -> dict[str, dict | None]:
+_RATE_LIMIT_SIGNALS = [
+    "before you continue", "i'm not a robot", "captcha",
+    "unusual traffic", "verify you're human", "our systems have detected",
+]
+
+
+async def _scrape_once(browser: Browser, gf_link: str) -> tuple[dict, bool]:
+    """Returns (parsed_result, rate_limited)."""
     ctx = await browser.new_context(
         locale="en-US",
         timezone_id="Asia/Bangkok",
@@ -168,19 +175,22 @@ async def _scrape_once(browser: Browser, gf_link: str) -> dict[str, dict | None]
     try:
         await page.goto(gf_link, wait_until="domcontentloaded", timeout=60_000)
         body = ""
-        for _ in range(8):
+        for _ in range(12):
             await page.wait_for_timeout(4_000)
             body = await page.inner_text("body")
-            # "1 result returned." is singular — match both forms
+            b_low = body.lower()
+            if any(s in b_low for s in _RATE_LIMIT_SIGNALS):
+                print("  ⚠️  rate-limit/CAPTCHA detected")
+                return {}, True
             if re.search(r"\d+\s+results?\s+returned", body) and "THB" in body:
                 break
-        return parse_body(body, gf_link)
+        return parse_body(body, gf_link), False
     finally:
         await ctx.close()
 
 
 async def scrape_date(browser: Browser, dep_date: date,
-                      max_attempts: int = 2) -> dict[str, dict | None]:
+                      max_attempts: int = 3) -> dict[str, dict | None]:
     """One filtered query per airline so both legs are on the same carrier."""
     ret_date = dep_date + timedelta(days=STAY_NIGHTS)
     result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
@@ -189,14 +199,18 @@ async def scrape_date(browser: Browser, dep_date: date,
         gf_link = build_q_url(dep_date, ret_date, airline=code)
         for attempt in range(1, max_attempts + 1):
             try:
-                parsed = await _scrape_once(browser, gf_link)
+                parsed, rate_limited = await _scrape_once(browser, gf_link)
                 if parsed.get(code):
                     result[code] = parsed[code]
                     break
+                wait = (random.uniform(45, 90) if rate_limited
+                        else random.uniform(8, 15) * attempt)
+                print(f"  [{dep_date}/{code}] attempt {attempt} miss → wait {wait:.0f}s")
             except Exception as exc:
-                print(f"  [{dep_date}/{code}] attempt {attempt} ERROR: {exc}")
-            await asyncio.sleep(random.uniform(5, 10) * attempt)
-        await asyncio.sleep(random.uniform(1, 3))
+                wait = random.uniform(10, 20) * attempt
+                print(f"  [{dep_date}/{code}] attempt {attempt} ERROR: {exc} → wait {wait:.0f}s")
+            await asyncio.sleep(wait)
+        await asyncio.sleep(random.uniform(3, 7))
 
     return result
 
@@ -363,6 +377,7 @@ async def main():
             args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
         )
         cur = START_DATE
+        date_idx = 0
         while cur <= END_DATE:
             ret = cur + timedelta(days=STAY_NIGHTS)
             print(f"⏳ {cur} ...", end=" ", flush=True)
@@ -381,8 +396,14 @@ async def main():
                     })
             print("  ".join(found) if found else "no match")
             cur += timedelta(days=1)
-            # polite gap between dates to avoid rate-limiting / CAPTCHA
-            await asyncio.sleep(random.uniform(3, 6))
+            date_idx += 1
+            # longer rest every 8 dates to let Google rate-limit window reset
+            if date_idx % 8 == 0:
+                rest = random.uniform(30, 50)
+                print(f"⏸  {rest:.0f}s cooldown after {date_idx} dates")
+                await asyncio.sleep(rest)
+            else:
+                await asyncio.sleep(random.uniform(8, 15))
 
         await browser.close()
 
