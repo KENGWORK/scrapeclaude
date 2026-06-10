@@ -2,16 +2,17 @@
 """
 BKK → NRT Flight Price Monitor
 Airlines : ANA, JAL, Thai Airways
-Dates    : Jan 15 – Feb 15 2026  (8 days / 7 nights round-trip)
+Dates    : Jan 15 – Feb 15 2027  (8 days / 7 nights round-trip)
 Schedule : Daily 23:00 ICT via GitHub Actions
 Storage  : Google Sheets (Service Account)
-Data     : fast-flights (Google Flights protobuf, no browser)
+Data     : Google Flights ?q= URL rendered via Playwright, parsed from text
 """
 
+import asyncio
 import json
 import os
+import re
 import smtplib
-import time
 import urllib.parse
 from datetime import date, timedelta, datetime
 from email.mime.multipart import MIMEMultipart
@@ -19,22 +20,18 @@ from email.mime.text import MIMEText
 
 import gspread
 from google.oauth2.service_account import Credentials
-from fast_flights import FlightData, Passengers, get_flights
+from playwright.async_api import async_playwright, Browser
 
 # ── Config ────────────────────────────────────────────────────────────────────
-START_DATE  = date(2026, 1, 15)
-END_DATE    = date(2026, 2, 15)
+START_DATE  = date(2027, 1, 15)
+END_DATE    = date(2027, 2, 15)
 STAY_NIGHTS = 7
 
 ORIGIN = "BKK"
 DEST   = "NRT"
 
-# Match airline names returned by Google Flights → our short codes
-AIRLINE_MATCH: dict[str, list[str]] = {
-    "ANA":  ["ana", "all nippon"],
-    "JAL":  ["jal", "japan airlines"],
-    "THAI": ["thai airways", "thai airasia", "thai"],
-}
+# Exclude budget carriers that contain "thai" in their name
+EXCLUDE_THAI = ["vietjet", "airasia", "lion", "smile"]
 
 GMAIL_USER         = os.environ["GMAIL_USER"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
@@ -42,6 +39,12 @@ RECIPIENT          = "kenglao2903@hotmail.com"
 
 GOOGLE_SERVICE_ACCOUNT_JSON = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 GOOGLE_SHEET_ID             = os.environ["GOOGLE_SHEET_ID"]
+
+# Text-parse regexes (Google Flights uses U+202F / U+00A0 whitespace → \s covers them)
+DEP_RE = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M$")
+ARR_RE = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M(\+\d)?$")
+DUR_RE = re.compile(r"^\d+\s*hr(\s*\d+\s*min)?$")
+PRICE_RE = re.compile(r"THB\s*([\d,]+)")
 
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────
@@ -62,21 +65,14 @@ def get_worksheet():
         ws = sh.worksheet("FlightPrices")
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet("FlightPrices", rows=10000, cols=10)
-        ws.append_row([
-            "scrape_date", "departure_date", "return_date",
-            "airline", "price_thb", "dep_time", "arr_time",
-            "duration", "gf_link",
-        ])
-        print("📋 Sheet headers created")
 
-    # Ensure header exists even if sheet pre-made empty
     if not ws.row_values(1):
         ws.update("A1:I1", [[
             "scrape_date", "departure_date", "return_date",
             "airline", "price_thb", "dep_time", "arr_time",
             "duration", "gf_link",
         ]])
-
+        print("📋 Sheet headers created")
     return ws
 
 
@@ -95,62 +91,84 @@ def append_rows(ws, scrape_dt: datetime, rows: list[dict]):
 
 def match_airline(name: str) -> str | None:
     n = name.lower()
-    for code, keywords in AIRLINE_MATCH.items():
-        if any(kw in n for kw in keywords):
-            return code
+    if n == "ana" or "all nippon" in n:
+        return "ANA"
+    if "jal" in n or "japan airlines" in n:
+        return "JAL"
+    if (n == "thai" or "thai airways" in n) and not any(x in n for x in EXCLUDE_THAI):
+        return "THAI"
     return None
 
 
-def parse_price(price_str: str) -> int | None:
-    """fast-flights returns '฿12,345' or '12345' style strings."""
-    digits = "".join(ch for ch in str(price_str) if ch.isdigit())
-    return int(digits) if digits else None
+def clean(s: str) -> str:
+    return s.replace(chr(0x202f),chr(32)).replace(chr(0xa0),chr(32)).strip()
 
 
-def build_gf_link(dep: date, ret: date) -> str:
+def build_q_url(dep: date, ret: date) -> str:
     q = f"Flights to {DEST} from {ORIGIN} on {dep.isoformat()} through {ret.isoformat()}"
-    return "https://www.google.com/travel/flights?q=" + urllib.parse.quote(q)
+    return ("https://www.google.com/travel/flights?q="
+            + urllib.parse.quote(q) + "&hl=en-US&curr=THB&gl=TH")
+
+
+def parse_body(text: str, gf_link: str) -> dict[str, dict | None]:
+    lines = [clean(l) for l in text.split("\n")]
+    result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
+
+    for i in range(len(lines) - 5):
+        if not (DEP_RE.match(lines[i]) and ARR_RE.match(lines[i + 2])
+                and DUR_RE.match(lines[i + 4])):
+            continue
+        code = match_airline(lines[i + 3])
+        if not code:
+            continue
+        price = None
+        for j in range(i, min(i + 12, len(lines))):
+            m = PRICE_RE.match(lines[j])
+            if m:
+                price = int(m.group(1).replace(",", ""))
+                break
+        if price is None:
+            continue
+        if result[code] is None or price < result[code]["price"]:
+            result[code] = {
+                "price":    price,
+                "dep_time": lines[i],
+                "arr_time": lines[i + 2],
+                "duration": lines[i + 4],
+                "gf_link":  gf_link,
+            }
+    return result
 
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
-def scrape_date(dep_date: date) -> dict[str, dict | None]:
+async def scrape_date(browser: Browser, dep_date: date) -> dict[str, dict | None]:
     ret_date = dep_date + timedelta(days=STAY_NIGHTS)
-    result: dict[str, dict | None] = {k: None for k in AIRLINE_MATCH}
-    gf_link = build_gf_link(dep_date, ret_date)
+    gf_link = build_q_url(dep_date, ret_date)
+    result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
 
+    ctx = await browser.new_context(
+        locale="en-US",
+        timezone_id="Asia/Bangkok",
+        user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),
+    )
+    page = await ctx.new_page()
     try:
-        res = get_flights(
-            flight_data=[
-                FlightData(date=dep_date.isoformat(), from_airport=ORIGIN, to_airport=DEST),
-                FlightData(date=ret_date.isoformat(), from_airport=DEST, to_airport=ORIGIN),
-            ],
-            trip="round-trip",
-            seat="economy",
-            passengers=Passengers(adults=1, children=0, infants_in_seat=0, infants_on_lap=0),
-            fetch_mode="local",
-        )
+        await page.goto(gf_link, wait_until="domcontentloaded", timeout=60_000)
+
+        # Poll until results render (text contains "results returned" + a THB price)
+        for _ in range(6):
+            await page.wait_for_timeout(5_000)
+            body = await page.inner_text("body")
+            if "results returned" in body and "THB" in body:
+                break
+
+        result = parse_body(body, gf_link)
     except Exception as exc:
         print(f"  [{dep_date}] ERROR: {exc}")
-        return result
-
-    for f in res.flights:
-        code = match_airline(getattr(f, "name", ""))
-        if not code:
-            continue
-        price = parse_price(getattr(f, "price", ""))
-        if price is None:
-            continue
-
-        info = {
-            "price":    price,
-            "dep_time": getattr(f, "departure", "") or "",
-            "arr_time": getattr(f, "arrival", "") or "",
-            "duration": getattr(f, "duration", "") or "",
-            "gf_link":  gf_link,
-        }
-        if result[code] is None or price < result[code]["price"]:
-            result[code] = info
+    finally:
+        await ctx.close()
 
     return result
 
@@ -207,38 +225,42 @@ def send_email(html: str):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
+async def main():
     ws = get_worksheet()
     scrape_dt = datetime.now()
     all_results: dict[date, dict] = {}
     sheet_rows: list[dict] = []
 
-    cur = START_DATE
-    while cur <= END_DATE:
-        ret = cur + timedelta(days=STAY_NIGHTS)
-        print(f"⏳ {cur} ...", end=" ", flush=True)
-        prices = scrape_date(cur)
-        all_results[cur] = prices
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        )
+        cur = START_DATE
+        while cur <= END_DATE:
+            ret = cur + timedelta(days=STAY_NIGHTS)
+            print(f"⏳ {cur} ...", end=" ", flush=True)
+            prices = await scrape_date(browser, cur)
+            all_results[cur] = prices
 
-        found = []
-        for airline, info in prices.items():
-            if info:
-                found.append(f"{airline}=฿{info['price']:,}")
-                sheet_rows.append({
-                    "dep_date": cur.isoformat(), "ret_date": ret.isoformat(),
-                    "airline":  airline, "price": info["price"],
-                    "dep_time": info["dep_time"], "arr_time": info["arr_time"],
-                    "duration": info["duration"], "gf_link": info["gf_link"],
-                })
-        print("  ".join(found) if found else "no match")
+            found = []
+            for airline, info in prices.items():
+                if info:
+                    found.append(f"{airline}=฿{info['price']:,}")
+                    sheet_rows.append({
+                        "dep_date": cur.isoformat(), "ret_date": ret.isoformat(),
+                        "airline": airline, "price": info["price"],
+                        "dep_time": info["dep_time"], "arr_time": info["arr_time"],
+                        "duration": info["duration"], "gf_link": info["gf_link"],
+                    })
+            print("  ".join(found) if found else "no match")
+            cur += timedelta(days=1)
 
-        time.sleep(2)
-        cur += timedelta(days=1)
+        await browser.close()
 
     append_rows(ws, scrape_dt, sheet_rows)
     print(f"📊 {len(sheet_rows)} rows written to Google Sheets")
 
-    # Email failure must NOT discard scraped data (already saved above)
     try:
         send_email(build_html(all_results))
     except Exception as exc:
@@ -246,4 +268,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
