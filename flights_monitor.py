@@ -24,7 +24,7 @@ from playwright.async_api import async_playwright, Browser
 
 # ── Config ────────────────────────────────────────────────────────────────────
 START_DATE  = date(2027, 1, 15)
-END_DATE    = date(2027, 2, 15)
+END_DATE    = date(2027, 1, 17)   # TEST: 3 days only — expand to 2/15 after IP verified
 STAY_NIGHTS = 7
 
 ORIGIN = "BKK"
