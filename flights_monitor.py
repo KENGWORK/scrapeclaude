@@ -9,6 +9,7 @@ Data     : Google Flights ?q= URL rendered via Playwright, parsed from text
 """
 
 import asyncio
+import io
 import json
 import os
 import re
@@ -17,14 +18,19 @@ import urllib.parse
 from datetime import date, timedelta, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 
 import gspread
 from google.oauth2.service_account import Credentials
 from playwright.async_api import async_playwright, Browser
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 # ── Config ────────────────────────────────────────────────────────────────────
 START_DATE  = date(2027, 1, 15)
-END_DATE    = date(2027, 1, 17)   # TEST: 3 days only — expand to 2/15 after IP verified
+END_DATE    = date(2027, 2, 15)
 STAY_NIGHTS = 7
 
 ORIGIN = "BKK"
@@ -207,19 +213,69 @@ def build_html(all_results: dict[date, dict]) -> str:
   </tr></thead>
   <tbody>{rows}</tbody>
 </table>
+<h3 style="color:#1565c0;margin-top:24px">📈 กราฟราคาตามวันออกเดินทาง</h3>
+<img src="cid:pricechart" style="max-width:100%;border:1px solid #ddd;border-radius:8px">
 <p style="color:#bbb;font-size:11px;margin-top:16px">ดึงข้อมูลจาก Google Flights | github actions</p>
 </body></html>"""
 
 
-def send_email(html: str):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"✈️ BKK–NRT ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
-    msg["From"]    = GMAIL_USER
-    msg["To"]      = RECIPIENT
-    msg.attach(MIMEText(html, "html", "utf-8"))
+AIRLINE_PLOT = {"ANA": "#1565c0", "JAL": "#d32f2f", "THAI": "#f9a825"}
+
+
+def build_chart_png(all_results: dict[date, dict]) -> bytes | None:
+    deps = sorted(all_results)
+    if not deps:
+        return None
+    xlabels = [d.strftime("%d %b") for d in deps]
+    x = list(range(len(deps)))
+
+    fig, ax = plt.subplots(figsize=(10, 4.5), dpi=110)
+    plotted = False
+    for code, color in AIRLINE_PLOT.items():
+        ys = [all_results[d][code]["price"] if all_results[d].get(code) else None
+              for d in deps]
+        if any(v is not None for v in ys):
+            ax.plot(x, ys, marker="o", label=code, color=color, linewidth=2)
+            plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(xlabels, rotation=45, ha="right", fontsize=8)
+    ax.set_ylabel("Price (THB)")
+    ax.set_title("BKK → NRT round-trip price by departure date")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.get_yaxis().set_major_formatter(
+        plt.FuncFormatter(lambda v, _: f"{int(v):,}"))
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def send_email(html: str, chart_png: bytes | None):
+    root = MIMEMultipart("related")
+    root["Subject"] = f"✈️ BKK–NRT ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
+    root["From"]    = GMAIL_USER
+    root["To"]      = RECIPIENT
+
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(html, "html", "utf-8"))
+    root.attach(alt)
+
+    if chart_png:
+        img = MIMEImage(chart_png, _subtype="png")
+        img.add_header("Content-ID", "<pricechart>")
+        img.add_header("Content-Disposition", "inline", filename="price_chart.png")
+        root.attach(img)
+
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as srv:
         srv.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        srv.sendmail(GMAIL_USER, RECIPIENT, msg.as_string())
+        srv.sendmail(GMAIL_USER, RECIPIENT, root.as_string())
     print(f"✅ Email sent → {RECIPIENT}")
 
 
@@ -262,7 +318,8 @@ async def main():
     print(f"📊 {len(sheet_rows)} rows written to Google Sheets")
 
     try:
-        send_email(build_html(all_results))
+        chart = build_chart_png(all_results)
+        send_email(build_html(all_results), chart)
     except Exception as exc:
         print(f"⚠️ Email failed (data still saved): {exc}")
 
