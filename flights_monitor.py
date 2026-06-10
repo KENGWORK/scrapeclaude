@@ -181,8 +181,46 @@ async def scrape_date(browser: Browser, dep_date: date) -> dict[str, dict | None
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
+def find_best(all_results: dict[date, dict]) -> dict | None:
+    """Single cheapest fare across all dates and airlines."""
+    best = None
+    for dep, p in all_results.items():
+        for code, info in p.items():
+            if not info:
+                continue
+            if best is None or info["price"] < best["price"]:
+                best = {**info, "airline": code, "dep_date": dep,
+                        "ret_date": dep + timedelta(days=STAY_NIGHTS)}
+    return best
+
+
+def build_best_box(best: dict | None) -> str:
+    if not best:
+        return ""
+    detail = (f"{best['dep_time']} → {best['arr_time']} ({best['duration']})"
+              if best.get('dep_time') else "")
+    return f"""
+<div style="background:#e8f5e9;border:2px solid #1b5e20;border-radius:12px;
+            padding:16px 20px;margin:16px 0">
+  <div style="color:#1b5e20;font-size:13px;font-weight:bold">🏆 ช่วงที่ถูกที่สุด</div>
+  <div style="font-size:28px;font-weight:900;color:#1b5e20;margin:4px 0">
+    ฿{best['price']:,} <span style="font-size:16px;font-weight:700">({best['airline']})</span>
+  </div>
+  <div style="color:#333;font-size:14px">
+    🗓️ ออก <b>{best['dep_date'].strftime('%a %d %b %Y')}</b> →
+    กลับ <b>{best['ret_date'].strftime('%a %d %b %Y')}</b>
+  </div>
+  <div style="color:#555;font-size:13px;margin-top:2px">⏱️ {detail}</div>
+  <a href="{best['gf_link']}" target="_blank"
+     style="display:inline-block;margin-top:10px;background:#1b5e20;color:white;
+            text-decoration:none;padding:8px 16px;border-radius:8px;font-size:13px">
+    ดูบน Google Flights →</a>
+</div>"""
+
+
 def build_html(all_results: dict[date, dict]) -> str:
     now = datetime.now().strftime("%d/%m/%Y %H:%M ICT")
+    best_box = build_best_box(find_best(all_results))
     rows = ""
     for dep in sorted(all_results):
         ret = dep + timedelta(days=STAY_NIGHTS)
@@ -206,6 +244,8 @@ def build_html(all_results: dict[date, dict]) -> str:
     return f"""<html><body style="font-family:Arial,sans-serif;padding:20px">
 <h2 style="color:#1565c0">✈️ ราคาตั๋ว BKK → NRT (ไป-กลับ 8 วัน / 7 คืน)</h2>
 <p style="color:#555">ข้อมูล ณ {now} | ราคา THB ต่อคน รวมภาษี</p>
+{best_box}
+<h3 style="color:#1565c0;margin-top:20px">📋 ราคาทุกช่วง</h3>
 <table border="1" cellpadding="8" cellspacing="0"
        style="border-collapse:collapse;font-size:13px;min-width:700px">
   <thead style="background:#1565c0;color:white"><tr>
