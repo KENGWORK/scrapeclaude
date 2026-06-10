@@ -12,6 +12,7 @@ import asyncio
 import io
 import json
 import os
+import random
 import re
 import smtplib
 import urllib.parse
@@ -148,11 +149,7 @@ def parse_body(text: str, gf_link: str) -> dict[str, dict | None]:
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
-async def scrape_date(browser: Browser, dep_date: date) -> dict[str, dict | None]:
-    ret_date = dep_date + timedelta(days=STAY_NIGHTS)
-    gf_link = build_q_url(dep_date, ret_date)
-    result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
-
+async def _scrape_once(browser: Browser, gf_link: str) -> dict[str, dict | None]:
     ctx = await browser.new_context(
         locale="en-US",
         timezone_id="Asia/Bangkok",
@@ -162,19 +159,32 @@ async def scrape_date(browser: Browser, dep_date: date) -> dict[str, dict | None
     page = await ctx.new_page()
     try:
         await page.goto(gf_link, wait_until="domcontentloaded", timeout=60_000)
-
-        # Poll until results render (text contains "results returned" + a THB price)
-        for _ in range(6):
-            await page.wait_for_timeout(5_000)
+        body = ""
+        for _ in range(8):
+            await page.wait_for_timeout(4_000)
             body = await page.inner_text("body")
             if "results returned" in body and "THB" in body:
                 break
-
-        result = parse_body(body, gf_link)
-    except Exception as exc:
-        print(f"  [{dep_date}] ERROR: {exc}")
+        return parse_body(body, gf_link)
     finally:
         await ctx.close()
+
+
+async def scrape_date(browser: Browser, dep_date: date,
+                      max_attempts: int = 3) -> dict[str, dict | None]:
+    ret_date = dep_date + timedelta(days=STAY_NIGHTS)
+    gf_link = build_q_url(dep_date, ret_date)
+    result: dict[str, dict | None] = {"ANA": None, "JAL": None, "THAI": None}
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = await _scrape_once(browser, gf_link)
+            if any(result.values()):     # got at least one airline → done
+                return result
+        except Exception as exc:
+            print(f"  [{dep_date}] attempt {attempt} ERROR: {exc}")
+        # empty/blocked → back off before retrying
+        await asyncio.sleep(random.uniform(8, 15) * attempt)
 
     return result
 
@@ -351,6 +361,8 @@ async def main():
                     })
             print("  ".join(found) if found else "no match")
             cur += timedelta(days=1)
+            # polite gap between dates to avoid rate-limiting / CAPTCHA
+            await asyncio.sleep(random.uniform(3, 6))
 
         await browser.close()
 
