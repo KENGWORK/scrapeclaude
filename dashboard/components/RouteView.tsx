@@ -17,9 +17,10 @@ interface RouteConfig {
   data: FlightRecord[];
 }
 
-export default function RouteView({ nrtData, cnxData }: {
+export default function RouteView({ nrtData, cnxData, dpsData }: {
   nrtData: FlightRecord[];
   cnxData: FlightRecord[];
+  dpsData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
     {
@@ -39,6 +40,15 @@ export default function RouteView({ nrtData, cnxData }: {
       desc: "3 สายการบินถูกสุด | พ.ย. 2026–ม.ค. 2027 | 5 วัน 4 คืน",
       schedule: "11:00 ICT",
       data: cnxData,
+    },
+    {
+      key: "dps",
+      label: "HKT → DPS",
+      origin: "HKT",
+      dest: "DPS",
+      desc: "AirAsia | 1–9 ก.ย. 2026 | 8 วัน 7 คืน",
+      schedule: "11:00 ICT",
+      data: dpsData,
     },
   ];
 

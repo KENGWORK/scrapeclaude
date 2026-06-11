@@ -40,14 +40,15 @@ async function fetchSheet(range: string): Promise<FlightRecord[]> {
 }
 
 export default async function HomePage() {
-  const [nrtData, cnxData] = await Promise.all([
+  const [nrtData, cnxData, dpsData] = await Promise.all([
     fetchSheet("FlightPrices!A:I"),
     fetchSheet("BKKCNXPrices!A:I"),
+    fetchSheet("HKTDPSPrices!A:H"),
   ]);
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-      <RouteView nrtData={nrtData} cnxData={cnxData} />
+      <RouteView nrtData={nrtData} cnxData={cnxData} dpsData={dpsData} />
     </main>
   );
 }
