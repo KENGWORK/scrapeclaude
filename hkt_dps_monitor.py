@@ -67,10 +67,10 @@ def get_worksheet():
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(SHEET_NAME, rows=5000, cols=10)
     if not ws.row_values(1):
-        ws.update("A1:H1", [[
+        ws.update([[
             "scrape_date", "departure_date", "return_date",
             "airline", "price_thb", "dep_time", "arr_time", "duration",
-        ]])
+        ]], "A1:H1")
         print("Sheet headers created")
     return ws
 
@@ -82,7 +82,7 @@ def clean(s: str) -> str:
 
 
 def build_q_url() -> str:
-    q = (f"Flights to {DEST} from {ORIGIN} "
+    q = ("Flights to Bali from Phuket "
          f"on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()} "
          f"with {AIRLINE_KEY}")
     return ("https://www.google.com/travel/flights?q="
