@@ -143,7 +143,11 @@ async def _scrape_once(browser: Browser, gf_link: str) -> tuple[dict | None, boo
                 return None, True
             if re.search(r"\d+\s+results?\s+returned", body) and "THB" in body:
                 break
-        return parse_body(body, gf_link), False
+        result = parse_body(body, gf_link)
+        if result is None:
+            snippet = " | ".join(body.split("\n")[10:30])
+            print(f"  DEBUG page snippet: {snippet[:400]}")
+        return result, False
     finally:
         await ctx.close()
 
