@@ -36,7 +36,7 @@ GOOGLE_SERVICE_ACCOUNT_JSON = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 GOOGLE_SHEET_ID             = os.environ["GOOGLE_SHEET_ID"]
 
 SHEET_NAME  = "HKTDPSPrices"
-AIRLINE_KEY = "AirAsia"
+AIRLINE_KEY = "Indonesia AirAsia"
 
 # Text-parse regexes
 DEP_RE   = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M$")
@@ -191,7 +191,7 @@ def build_html(info: dict | None, prev_price: int | None) -> str:
 
         body_html = f"""
 <div style="background:#e8f5e9;border:2px solid #1b5e20;border-radius:12px;padding:16px 20px">
-  <div style="color:#1b5e20;font-size:13px;font-weight:bold">✈ AirAsia HKT → DPS (ไป-กลับ)</div>
+  <div style="color:#1b5e20;font-size:13px;font-weight:bold">✈ Indonesia AirAsia HKT → DPS (ไป-กลับ)</div>
   <div style="font-size:32px;font-weight:900;color:#1b5e20;margin:6px 0">
     ฿{info['price']:,} {change}
   </div>
@@ -210,7 +210,7 @@ def build_html(info: dict | None, prev_price: int | None) -> str:
 </div>"""
 
     return f"""<html><body style="font-family:Arial,sans-serif;padding:20px">
-<h2 style="color:#e65100">✈ HKT → DPS | AirAsia | ราคาวันนี้</h2>
+<h2 style="color:#e65100">✈ HKT → DPS | Indonesia AirAsia | ราคาวันนี้</h2>
 <p style="color:#555;font-size:13px">ข้อมูล ณ {now} | ราคา THB ต่อคน รวมภาษี</p>
 {body_html}
 <p style="color:#bbb;font-size:11px;margin-top:20px">ดึงข้อมูลจาก Google Flights | github actions</p>
@@ -220,7 +220,7 @@ def build_html(info: dict | None, prev_price: int | None) -> str:
 def send_email(html: str):
     price_label = "ราคาวันนี้"
     root = MIMEMultipart("alternative")
-    root["Subject"] = f"HKT-DPS AirAsia {price_label} | {datetime.now().strftime('%d/%m/%Y')}"
+    root["Subject"] = f"HKT-DPS Indonesia AirAsia {price_label} | {datetime.now().strftime('%d/%m/%Y')}"
     root["From"]    = GMAIL_USER
     root["To"]      = ", ".join(RECIPIENTS)
     root.attach(MIMEText(html, "html", "utf-8"))
