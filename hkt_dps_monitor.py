@@ -83,8 +83,7 @@ def clean(s: str) -> str:
 
 def build_q_url() -> str:
     q = ("Flights to Bali from Phuket "
-         f"on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()} "
-         f"with {AIRLINE_KEY}")
+         f"on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()}")
     return ("https://www.google.com/travel/flights?q="
             + urllib.parse.quote(q) + "&hl=en-US&curr=THB&gl=TH")
 
@@ -92,12 +91,14 @@ def build_q_url() -> str:
 def parse_body(text: str, gf_link: str) -> dict | None:
     lines = [clean(l) for l in text.split("\n")]
     best = None
+    airlines_found = []
     for i in range(len(lines) - 5):
         if not (DEP_RE.match(lines[i]) and ARR_RE.match(lines[i + 2])
                 and DUR_RE.match(lines[i + 4])):
             continue
-        name = lines[i + 3].lower()
-        if "airasia" not in name:
+        name = lines[i + 3]
+        airlines_found.append(name)
+        if "airasia" not in name.lower():
             continue
         price = None
         for j in range(i, min(i + 12, len(lines))):
@@ -115,6 +116,8 @@ def parse_body(text: str, gf_link: str) -> dict | None:
                 "duration": lines[i + 4],
                 "gf_link":  gf_link,
             }
+    if not best and airlines_found:
+        print(f"  Airlines found (no AirAsia): {set(airlines_found)}")
     return best
 
 
