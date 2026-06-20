@@ -1,81 +1,146 @@
 "use client";
-import { ExternalLink, Plane } from "lucide-react";
+import { ExternalLink, Plane, Tag } from "lucide-react";
 import type { FlightRecord } from "@/app/api/flights/route";
+import type { RouteKey } from "./RouteView";
 
-const AIRLINE_COLORS: Record<string, string> = {
-  ANA:  "from-blue-500/30 to-blue-900/30 border-blue-400/40",
-  JAL:  "from-red-500/30 to-red-900/30 border-red-400/40",
-  THAI: "from-amber-500/30 to-amber-900/30 border-amber-400/40",
-};
-const AIRLINE_TEXT: Record<string, string> = {
-  ANA:  "text-blue-300",
-  JAL:  "text-red-300",
-  THAI: "text-amber-300",
+const NRT_AIRLINES = ["ANA", "JAL", "THAI"] as const;
+const NRT_COLORS: Record<string, { accent: string; label: string }> = {
+  ANA:  { accent: "#3B82F6", label: "All Nippon Airways" },
+  JAL:  { accent: "#EF4444", label: "Japan Airlines" },
+  THAI: { accent: "#A855F7", label: "Thai Airways" },
 };
 
-interface Props { data: FlightRecord[] }
+interface Props {
+  data: FlightRecord[];
+  routeKey: RouteKey;
+}
 
-export default function BestDealCards({ data }: Props) {
+export default function BestDealCards({ data, routeKey }: Props) {
   if (!data.length) return null;
 
+  if (routeKey === "nrt") return <NrtCards data={data} />;
+  if (routeKey === "cnx") return <CnxCards data={data} />;
+  return null;
+}
+
+function NrtCards({ data }: { data: FlightRecord[] }) {
   const best: Record<string, FlightRecord> = {};
   data.forEach((r) => {
-    if (!best[r.airline] || r.price_thb < best[r.airline].price_thb) {
+    if (!best[r.airline] || r.price_thb < best[r.airline].price_thb)
       best[r.airline] = r;
-    }
   });
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {["ANA", "JAL", "THAI"].map((airline) => {
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {NRT_AIRLINES.map((airline) => {
         const deal = best[airline];
+        const { accent, label } = NRT_COLORS[airline];
         if (!deal) return (
-          <div key={airline}
-            className="bg-white/5 rounded-2xl p-5 border border-white/10 flex items-center justify-center text-white/30">
-            ยังไม่มีข้อมูล {airline}
-          </div>
+          <EmptyCard key={airline} title={airline} subtitle={label} accent={accent} />
         );
-
-        return (
-          <div key={airline}
-            className={`bg-gradient-to-br ${AIRLINE_COLORS[airline]} rounded-2xl p-5 border backdrop-blur-md`}>
-            <div className="flex items-center gap-2 mb-3">
-              <Plane size={18} className={AIRLINE_TEXT[airline]} />
-              <span className={`font-bold text-lg ${AIRLINE_TEXT[airline]}`}>{airline}</span>
-            </div>
-            <div className="text-3xl font-black text-white mb-1">
-              ฿{deal.price_thb.toLocaleString()}
-            </div>
-            <div className="text-sm text-white/70 mb-1">
-              🗓️ ออก {deal.departure_date}
-            </div>
-            <div className="text-sm text-white/70 mb-1">
-              🔄 กลับ {deal.return_date}
-            </div>
-            {deal.dep_time && (
-              <div className="text-sm text-white/70 mb-1">
-                🕐 {deal.dep_time} → {deal.arr_time}
-              </div>
-            )}
-            {deal.duration && (
-              <div className="text-sm text-white/70 mb-3">
-                ⏱️ {deal.duration}
-              </div>
-            )}
-            {deal.gf_link && (
-              <a
-                href={deal.gf_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 transition-colors text-white text-sm font-semibold px-4 py-2 rounded-xl"
-              >
-                <ExternalLink size={14} />
-                ดูบน Google Flights
-              </a>
-            )}
-          </div>
-        );
+        return <DealCard key={airline} deal={deal} title={airline} subtitle={label} accent={accent} />;
       })}
+    </div>
+  );
+}
+
+function CnxCards({ data }: { data: FlightRecord[] }) {
+  const latestScrape = data.reduce((a, b) =>
+    a.scrape_date > b.scrape_date ? a : b, data[0])?.scrape_date ?? "";
+  const latest = data.filter((r) => r.scrape_date === latestScrape);
+
+  const bestPerDate: Record<string, FlightRecord> = {};
+  latest.forEach((r) => {
+    const key = r.departure_date + "|" + r.airline;
+    if (!bestPerDate[key] || r.price_thb < bestPerDate[key].price_thb)
+      bestPerDate[key] = r;
+  });
+
+  const top3 = Object.values(bestPerDate)
+    .sort((a, b) => a.price_thb - b.price_thb)
+    .slice(0, 3);
+
+  const accent = "#10B981";
+  const medals = ["ถูกสุด", "ถูกสุด 2", "ถูกสุด 3"];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {top3.map((deal, i) => (
+        <DealCard
+          key={i}
+          deal={deal}
+          title={deal.airline}
+          subtitle={medals[i]}
+          accent={accent}
+          badge={i === 0 ? "Best Deal" : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DealCard({
+  deal, title, subtitle, accent, badge,
+}: {
+  deal: FlightRecord;
+  title: string;
+  subtitle: string;
+  accent: string;
+  badge?: string;
+}) {
+  return (
+    <div className="relative rounded-xl p-5 space-y-3 transition-all duration-200 cursor-pointer hover:scale-[1.01]"
+         style={{
+           background: `linear-gradient(135deg, ${accent}12 0%, transparent 100%)`,
+           border: `1px solid ${accent}30`,
+         }}>
+      {badge && (
+        <span className="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: accent + "30", color: accent }}>
+          {badge}
+        </span>
+      )}
+      <div className="flex items-center gap-2">
+        <Plane size={14} style={{ color: accent }} />
+        <div>
+          <div className="font-bold text-sm" style={{ color: accent }}>{title}</div>
+          <div className="text-xs" style={{ color: "var(--color-muted)" }}>{subtitle}</div>
+        </div>
+      </div>
+      <div className="font-data text-3xl font-bold text-white">
+        ฿{deal.price_thb.toLocaleString()}
+      </div>
+      <div className="space-y-1 text-xs" style={{ color: "var(--color-muted)" }}>
+        <div className="flex items-center gap-1.5">
+          <Tag size={11} />
+          <span>ออก {deal.departure_date} · กลับ {deal.return_date}</span>
+        </div>
+        {deal.dep_time && (
+          <div className="font-data">{deal.dep_time} → {deal.arr_time} ({deal.duration})</div>
+        )}
+      </div>
+      {deal.gf_link && (
+        <a href={deal.gf_link} target="_blank" rel="noopener noreferrer"
+           className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer"
+           style={{ background: accent + "20", color: accent, border: `1px solid ${accent}30` }}>
+          <ExternalLink size={11} />
+          ดูบน Google Flights
+        </a>
+      )}
+    </div>
+  );
+}
+
+function EmptyCard({ title, subtitle, accent }: { title: string; subtitle: string; accent: string }) {
+  return (
+    <div className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 min-h-[160px]"
+         style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+      <Plane size={20} style={{ color: accent, opacity: 0.4 }} />
+      <div className="text-center">
+        <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>{title}</div>
+        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)", opacity: 0.6 }}>{subtitle}</div>
+      </div>
+      <div className="text-xs" style={{ color: "var(--color-muted)", opacity: 0.5 }}>ยังไม่มีข้อมูล</div>
     </div>
   );
 }
