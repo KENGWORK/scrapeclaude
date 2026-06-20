@@ -155,12 +155,11 @@ function ChartCard({ title, subtitle, action, children }: {
   );
 }
 
-function SingleTooltip({ active, payload, label, color, label: lbl }: {
+function SingleTooltip({ active, payload, label, color }: {
   active?: boolean;
   payload?: { value: number }[];
   label?: string;
   color: string;
-  label: string;
 }) {
   if (!active || !payload?.length) return null;
   return (
