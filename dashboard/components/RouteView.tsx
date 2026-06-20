@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plane, Clock, Calendar, TrendingDown, RefreshCw } from "lucide-react";
+import { Plane, Clock, Calendar, TrendingDown, RefreshCw, ChevronRight } from "lucide-react";
 import type { FlightRecord } from "@/app/api/flights/route";
 import BestDealCards from "./BestDealCard";
 import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
 import DpsPriceCard from "./DpsPriceCard";
+import FlightModal from "./FlightModal";
 
 export type RouteKey = "nrt" | "cnx" | "dps";
 
@@ -14,14 +15,12 @@ interface RouteConfig {
   key: RouteKey;
   label: string;
   sublabel: string;
-  origin: string;
-  dest: string;
   meta: string;
   schedule: string;
   data: FlightRecord[];
-  accent: string;       // text/icon color
-  accentBg: string;     // pastel bg
-  accentBorder: string; // border color
+  accent: string;
+  accentBg: string;
+  accentBorder: string;
 }
 
 export default function RouteView({
@@ -36,180 +35,260 @@ export default function RouteView({
       key: "nrt",
       label: "BKK → NRT",
       sublabel: "กรุงเทพ → โตเกียว",
-      origin: "BKK", dest: "NRT",
       meta: "ANA · JAL · Thai Airways | ม.ค.–ก.พ. 2027 | 8 วัน 7 คืน",
       schedule: "14:00 & 23:00 ICT",
       data: nrtData,
-      accent: "#1D4ED8",
-      accentBg: "#D4FAFF",
-      accentBorder: "#93C5FD",
+      accent: "#1D4ED8", accentBg: "#D4FAFF", accentBorder: "#93C5FD",
     },
     {
       key: "cnx",
       label: "BKK → CNX",
       sublabel: "กรุงเทพ → เชียงใหม่",
-      origin: "BKK", dest: "CNX",
       meta: "3 สายการบินถูกสุด | พ.ย. 2026–ม.ค. 2027 | 5 วัน 4 คืน",
       schedule: "11:00 ICT",
       data: cnxData,
-      accent: "#15803D",
-      accentBg: "#D7F5D3",
-      accentBorder: "#86EFAC",
+      accent: "#15803D", accentBg: "#D7F5D3", accentBorder: "#86EFAC",
     },
     {
       key: "dps",
       label: "HKT → DPS",
       sublabel: "ภูเก็ต → บาหลี",
-      origin: "HKT", dest: "DPS",
       meta: "Indonesia AirAsia | 1–9 ก.ย. 2026 | 8 วัน 7 คืน",
       schedule: "11:00 ICT",
       data: dpsData,
-      accent: "#7C3AED",
-      accentBg: "#F1D4FF",
-      accentBorder: "#C4B5FD",
+      accent: "#7C3AED", accentBg: "#F1D4FF", accentBorder: "#C4B5FD",
     },
   ];
 
   const [activeKey, setActiveKey] = useState<RouteKey>("nrt");
+  const [modalRecord, setModalRecord] = useState<FlightRecord | null>(null);
+
   const route = routes.find((r) => r.key === activeKey)!;
   const data = route.data;
   const isDps = activeKey === "dps";
 
-  const lastUpdated = data.length
+  const latestScrape = data.length
     ? data.reduce((a, b) => (a.scrape_date > b.scrape_date ? a : b)).scrape_date
     : null;
 
+  const bestPrice = data.length
+    ? Math.min(...data.map((r) => r.price_thb))
+    : null;
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-5">
+    <>
+      {/* Sidebar + Content layout */}
+      <div className="flex min-h-screen">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-             style={{ background: "#D4FAFF", border: "1px solid #93C5FD" }}>
-          <Plane size={18} style={{ color: "#1D4ED8" }} />
+        {/* ── Sidebar ── */}
+        <aside className="hidden md:flex flex-col w-64 flex-shrink-0 sticky top-0 h-screen"
+               style={{ background: "#FFFFFF", borderRight: "1px solid var(--color-border-md)" }}>
+
+          {/* App brand */}
+          <div className="flex items-center gap-2.5 px-5 py-5"
+               style={{ borderBottom: "1px solid var(--color-border)" }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                 style={{ background: "#D4FAFF", border: "1px solid #93C5FD" }}>
+              <Plane size={16} style={{ color: "#1D4ED8" }} />
+            </div>
+            <div>
+              <div className="font-bold text-sm" style={{ color: "var(--color-text)" }}>Flight Monitor</div>
+              <div className="text-xs" style={{ color: "var(--color-muted)" }}>ราคาตั๋วรายวัน</div>
+            </div>
+          </div>
+
+          {/* Route list */}
+          <nav className="flex-1 px-3 py-4 space-y-1.5">
+            <div className="text-xs font-bold uppercase tracking-widest px-2 mb-3"
+                 style={{ color: "var(--color-muted)", opacity: 0.6 }}>
+              เส้นทาง
+            </div>
+            {routes.map((r) => {
+              const isActive = activeKey === r.key;
+              const lastPrice = r.data.length
+                ? Math.min(...r.data.map((d) => d.price_thb))
+                : null;
+              return (
+                <button
+                  key={r.key}
+                  onClick={() => setActiveKey(r.key)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all duration-200 cursor-pointer text-left"
+                  style={isActive ? {
+                    background: r.accentBg,
+                    border: `1.5px solid ${r.accentBorder}`,
+                  } : {
+                    background: "transparent",
+                    border: "1.5px solid transparent",
+                  }}
+                >
+                  <div className="w-8 h-8 flex-shrink-0 rounded-xl flex items-center justify-center"
+                       style={{ background: isActive ? r.accent + "15" : "var(--color-surface-2)", border: `1px solid ${isActive ? r.accentBorder : "var(--color-border)"}` }}>
+                    <Plane size={13} style={{ color: isActive ? r.accent : "var(--color-muted)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm truncate"
+                         style={{ color: isActive ? r.accent : "var(--color-text)" }}>
+                      {r.label}
+                    </div>
+                    <div className="text-xs truncate" style={{ color: "var(--color-muted)" }}>
+                      {r.sublabel}
+                    </div>
+                  </div>
+                  {lastPrice && (
+                    <div className="text-xs font-data font-bold flex-shrink-0"
+                         style={{ color: isActive ? r.accent : "var(--color-muted)" }}>
+                      ฿{(lastPrice / 1000).toFixed(0)}k
+                    </div>
+                  )}
+                  {!r.data.length && (
+                    <div className="text-xs flex-shrink-0" style={{ color: "var(--color-muted)", opacity: 0.5 }}>–</div>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Sidebar footer */}
+          <div className="px-5 py-4" style={{ borderTop: "1px solid var(--color-border)" }}>
+            <div className="text-xs" style={{ color: "var(--color-muted)", opacity: 0.7 }}>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <RefreshCw size={10} />
+                {latestScrape ? `อัปเดต ${latestScrape.slice(0, 10)}` : "ยังไม่มีข้อมูล"}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock size={10} />
+                {route.schedule}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Mobile top tabs ── */}
+        <div className="md:hidden fixed top-0 left-0 right-0 z-40 px-3 py-2"
+             style={{ background: "#FFFFFF", borderBottom: "1px solid var(--color-border-md)", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
+          <div className="flex gap-1.5">
+            {routes.map((r) => {
+              const isActive = activeKey === r.key;
+              return (
+                <button key={r.key} onClick={() => setActiveKey(r.key)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer"
+                  style={isActive ? { background: r.accentBg, color: r.accent, border: `1px solid ${r.accentBorder}` }
+                    : { background: "transparent", color: "var(--color-muted)", border: "1px solid transparent" }}>
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--color-text)" }}>
-            Flight Price Monitor
-          </h1>
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-            ติดตามราคาตั๋วเครื่องบินอัตโนมัติ · อัปเดตทุกวัน
-          </p>
-        </div>
-      </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-2 p-1.5 rounded-2xl"
-           style={{ background: "#FFFFFF", border: "1px solid var(--color-border-md)", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        {routes.map((r) => {
-          const isActive = activeKey === r.key;
-          return (
-            <button
-              key={r.key}
-              onClick={() => setActiveKey(r.key)}
-              className="flex-1 flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer"
-              style={isActive ? {
-                background: r.accentBg,
-                color: r.accent,
-                border: `1.5px solid ${r.accentBorder}`,
-                boxShadow: `0 2px 8px ${r.accent}18`,
-              } : {
-                color: "var(--color-muted)",
-                border: "1.5px solid transparent",
-                background: "transparent",
-              }}
-            >
-              <span className="font-bold tracking-wide text-base">{r.label}</span>
-              <span className="text-xs font-normal opacity-75">{r.sublabel}</span>
-            </button>
-          );
-        })}
-      </div>
+        {/* ── Main content ── */}
+        <main className="flex-1 min-w-0 md:overflow-y-auto px-5 py-6 md:py-8 mt-12 md:mt-0 space-y-6"
+              style={{ background: "var(--color-bg)" }}>
 
-      {/* Info bar */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-4 py-2.5 rounded-xl text-sm"
-           style={{ background: route.accentBg, border: `1px solid ${route.accentBorder}` }}>
-        <span className="flex items-center gap-1.5" style={{ color: route.accent }}>
-          <Calendar size={13} />
-          {route.meta}
-        </span>
-        <span className="flex items-center gap-1.5 ml-auto" style={{ color: route.accent, opacity: 0.7 }}>
-          <Clock size={13} />
-          อัปเดต {route.schedule}
-        </span>
-        {lastUpdated && (
-          <span className="flex items-center gap-1.5" style={{ color: route.accent, opacity: 0.7 }}>
-            <RefreshCw size={13} />
-            ล่าสุด {lastUpdated}
-          </span>
-        )}
-      </div>
+          {/* Page header */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+                {route.label}
+              </h1>
+              <p className="text-sm mt-0.5 flex items-center gap-1.5" style={{ color: "var(--color-muted)" }}>
+                <Calendar size={12} />
+                {route.meta}
+              </p>
+            </div>
+            {bestPrice && (
+              <div className="flex-shrink-0 text-right">
+                <div className="text-xs font-semibold uppercase tracking-wider mb-0.5"
+                     style={{ color: route.accent, opacity: 0.7 }}>ราคาต่ำสุด</div>
+                <div className="font-data text-xl font-bold" style={{ color: "var(--color-text)" }}>
+                  ฿{bestPrice.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
 
-      {/* No data */}
-      {!data.length && (
-        <div className="flex flex-col items-center justify-center py-24 rounded-2xl"
-             style={{ background: "#FFFFFF", border: "1px solid var(--color-border-md)" }}>
-          <Plane size={40} style={{ color: route.accent, opacity: 0.25 }} className="mb-4" />
-          <p className="font-semibold" style={{ color: "var(--color-muted)" }}>ยังไม่มีข้อมูล</p>
-          <p className="text-sm mt-1" style={{ color: "var(--color-muted)", opacity: 0.7 }}>
-            รอ GitHub Actions รันครั้งแรก · {route.schedule}
-          </p>
-        </div>
-      )}
-
-      {data.length > 0 && (
-        <div className="space-y-5">
-
-          {isDps ? (
-            <DpsPriceCard data={data} accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
-          ) : (
-            <>
-              <SectionLabel icon={<TrendingDown size={14} />} title="ราคาถูกสุด" color={route.accent} />
-              <BestDealCards data={data} routeKey={activeKey} accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
-            </>
+          {/* No data */}
+          {!data.length && (
+            <div className="flex flex-col items-center justify-center py-24 rounded-3xl"
+                 style={{ background: "#FFFFFF", border: "1px solid var(--color-border-md)" }}>
+              <Plane size={40} style={{ color: route.accent, opacity: 0.2 }} className="mb-4" />
+              <p className="font-semibold" style={{ color: "var(--color-muted)" }}>ยังไม่มีข้อมูล</p>
+              <p className="text-sm mt-1" style={{ color: "var(--color-muted)", opacity: 0.6 }}>
+                รอ GitHub Actions รันครั้งแรก · {route.schedule}
+              </p>
+            </div>
           )}
 
-          {!isDps && <PriceByDepartureChart data={data} routeKey={activeKey} accentColor={route.accent} />}
-          <PriceHistoryChart data={data} routeKey={activeKey} accentColor={route.accent} />
+          {data.length > 0 && (
+            <div className="space-y-6">
 
-          <SectionLabel icon={<Calendar size={14} />} title="ข้อมูลทั้งหมด" color={route.accent} />
-          <DataTable data={data} accentColor={route.accent} />
-        </div>
-      )}
-    </div>
+              {/* Best deals */}
+              {isDps ? (
+                <DpsPriceCard data={data} accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
+              ) : (
+                <>
+                  <SectionLabel icon={<TrendingDown size={13} />} title="ราคาถูกสุด" color={route.accent} />
+                  <BestDealCards data={data} routeKey={activeKey}
+                    accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
+                </>
+              )}
+
+              {/* Charts */}
+              {!isDps && <PriceByDepartureChart data={data} routeKey={activeKey} accentColor={route.accent} />}
+              <PriceHistoryChart data={data} routeKey={activeKey} accentColor={route.accent} />
+
+              {/* Data table */}
+              <SectionLabel icon={<Calendar size={13} />} title="ข้อมูลทั้งหมด" color={route.accent} />
+              <DataTable data={data} accentColor={route.accent} onViewDetail={setModalRecord} />
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Modal */}
+      <FlightModal
+        record={modalRecord}
+        accentColor={route.accent}
+        accentBg={route.accentBg}
+        accentBorder={route.accentBorder}
+        onClose={() => setModalRecord(null)}
+      />
+    </>
   );
 }
 
 function SectionLabel({ icon, title, color }: { icon: React.ReactNode; title: string; color: string }) {
   return (
-    <div className="flex items-center gap-2 pt-1">
+    <div className="flex items-center gap-2">
       <span style={{ color }}>{icon}</span>
-      <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color, opacity: 0.85 }}>
-        {title}
-      </h2>
+      <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color, opacity: 0.8 }}>{title}</h2>
     </div>
   );
 }
 
-function DataTable({ data, accentColor }: { data: FlightRecord[]; accentColor: string }) {
+const AIRLINE_COLOR: Record<string, string> = {
+  ANA: "#1D4ED8", JAL: "#DC2626", THAI: "#9333EA",
+};
+
+function DataTable({ data, accentColor, onViewDetail }: {
+  data: FlightRecord[];
+  accentColor: string;
+  onViewDetail: (r: FlightRecord) => void;
+}) {
   const sorted = [...data].sort((a, b) => {
     if (a.departure_date !== b.departure_date) return a.departure_date.localeCompare(b.departure_date);
     return a.price_thb - b.price_thb;
   });
 
-  const AIRLINE_COLOR: Record<string, string> = {
-    ANA: "#1D4ED8", JAL: "#DC2626", THAI: "#9333EA",
-  };
-
   return (
     <div className="overflow-x-auto rounded-2xl"
-         style={{ background: "#FFFFFF", border: "1px solid var(--color-border-md)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+         style={{ background: "#FFFFFF", border: "1px solid var(--color-border-md)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ borderBottom: "1px solid var(--color-border-md)" }}>
-            {["วันที่ดึงข้อมูล", "วันออกเดินทาง", "วันกลับ", "สายการบิน", "ราคา (THB)", "เวลาออก", "เวลาถึง", "ระยะเวลา", ""].map((h) => (
+          <tr style={{ borderBottom: "1px solid var(--color-border-md)", background: "#FAFAFA" }}>
+            {["วันออกเดินทาง", "วันกลับ", "สายการบิน", "ราคา (THB)", "เวลา", "ระยะเวลา", ""].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap"
-                  style={{ color: "var(--color-muted)", background: "#FAFAFA" }}>
+                  style={{ color: "var(--color-muted)" }}>
                 {h}
               </th>
             ))}
@@ -219,35 +298,36 @@ function DataTable({ data, accentColor }: { data: FlightRecord[]; accentColor: s
           {sorted.map((r, i) => {
             const color = AIRLINE_COLOR[r.airline] ?? accentColor;
             return (
-              <tr key={i} className="transition-colors"
+              <tr key={i}
                   style={{ borderBottom: "1px solid var(--color-border)", background: i % 2 === 0 ? "#FFFFFF" : "#FAFFFE" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#F8F9FF")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#F5F3FF")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 === 0 ? "#FFFFFF" : "#FAFFFE")}>
-                <td className="px-4 py-3 font-data text-xs" style={{ color: "var(--color-muted)" }}>
-                  {r.scrape_date.slice(0, 10)}
-                </td>
-                <td className="px-4 py-3 font-data text-xs whitespace-nowrap font-medium">{r.departure_date}</td>
-                <td className="px-4 py-3 font-data text-xs whitespace-nowrap">{r.return_date}</td>
+                <td className="px-4 py-3 font-data text-xs font-medium">{r.departure_date}</td>
+                <td className="px-4 py-3 font-data text-xs">{r.return_date}</td>
                 <td className="px-4 py-3">
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold"
                         style={{ background: color + "15", color }}>
                     {r.airline}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-data font-bold whitespace-nowrap" style={{ color: "var(--color-text)" }}>
+                <td className="px-4 py-3 font-data font-bold" style={{ color: "var(--color-text)" }}>
                   ฿{r.price_thb.toLocaleString()}
                 </td>
-                <td className="px-4 py-3 font-data text-xs" style={{ color: "var(--color-muted)" }}>{r.dep_time || "–"}</td>
-                <td className="px-4 py-3 font-data text-xs" style={{ color: "var(--color-muted)" }}>{r.arr_time || "–"}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>{r.duration || "–"}</td>
+                <td className="px-4 py-3 font-data text-xs" style={{ color: "var(--color-muted)" }}>
+                  {r.dep_time ? `${r.dep_time} → ${r.arr_time}` : "–"}
+                </td>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--color-muted)" }}>
+                  {r.duration || "–"}
+                </td>
                 <td className="px-4 py-3">
-                  {r.gf_link && (
-                    <a href={r.gf_link} target="_blank" rel="noopener noreferrer"
-                       className="text-xs font-semibold cursor-pointer transition-opacity hover:opacity-70"
-                       style={{ color: accentColor }}>
-                      ดูราคา →
-                    </a>
-                  )}
+                  <button
+                    onClick={() => onViewDetail(r)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-150 cursor-pointer hover:opacity-80"
+                    style={{ background: accentColor + "12", color: accentColor, border: `1px solid ${accentColor}25` }}
+                  >
+                    ดูราคา
+                    <ChevronRight size={11} />
+                  </button>
                 </td>
               </tr>
             );

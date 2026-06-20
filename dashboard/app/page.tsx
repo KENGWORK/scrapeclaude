@@ -47,7 +47,7 @@ export default async function HomePage() {
   ]);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <main>
       <RouteView nrtData={nrtData} cnxData={cnxData} dpsData={dpsData} />
     </main>
   );
