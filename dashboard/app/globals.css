@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   --color-bg:        #FAF7ED;
@@ -34,7 +34,8 @@ body {
 }
 
 .font-data {
-  font-family: 'Fira Code', monospace;
+  font-family: 'Sarabun', 'TH Sarabun New', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
