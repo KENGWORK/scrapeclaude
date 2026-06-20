@@ -215,6 +215,13 @@ export default function RouteView({
                 <Calendar size={12} />
                 {route.meta}
               </p>
+              {latestScrape && (
+                <p className="text-xs mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium"
+                   style={{ background: route.accentBg, color: route.accent, border: `1px solid ${route.accentBorder}` }}>
+                  <RefreshCw size={11} />
+                  ดึงข้อมูลล่าสุด {formatScrapeTime(latestScrape)}
+                </p>
+              )}
             </div>
             {bestPrice && (
               <div className="flex-shrink-0 text-right">
@@ -275,6 +282,19 @@ export default function RouteView({
       />
     </>
   );
+}
+
+const TH_MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+// scrape_date stored as "YYYY-MM-DD HH:MM" → "D เดือน YYYY เวลา HH:MM น."
+function formatScrapeTime(raw: string): string {
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return raw;
+  const [, y, mo, d, hh, mm] = m;
+  const day = parseInt(d, 10);
+  const month = TH_MONTHS[parseInt(mo, 10) - 1] ?? mo;
+  const datePart = `${day} ${month} ${y}`;
+  return hh ? `${datePart} เวลา ${hh}:${mm} น.` : datePart;
 }
 
 function SectionLabel({ icon, title, color }: { icon: React.ReactNode; title: string; color: string }) {
