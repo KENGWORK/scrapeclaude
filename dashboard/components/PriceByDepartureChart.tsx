@@ -31,7 +31,8 @@ export default function PriceByDepartureChart({ data, routeKey, accentColor }: P
     });
     chartData = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))
       .map(([date, prices]) => ({ date: date.slice(5), ...prices }));
-  } else if (routeKey === "cnx") {
+  } else {
+    // cnx / can / kix — dynamic airlines, top cheapest per departure
     const airlines = Array.from(new Set(latest.map((r) => r.airline)));
     series = airlines.map((a, i) => ({ key: a, color: CNX_PALETTE[i % CNX_PALETTE.length] }));
     const byDate: Record<string, Record<string, number>> = {};
@@ -41,8 +42,6 @@ export default function PriceByDepartureChart({ data, routeKey, accentColor }: P
     });
     chartData = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))
       .map(([date, prices]) => ({ date: date.slice(5), ...prices }));
-  } else {
-    return null;
   }
 
   return (

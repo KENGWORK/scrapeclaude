@@ -9,7 +9,7 @@ import PriceHistoryChart from "./PriceHistoryChart";
 import DpsPriceCard from "./DpsPriceCard";
 import FlightModal from "./FlightModal";
 
-export type RouteKey = "nrt" | "cnx" | "dps";
+export type RouteKey = "nrt" | "cnx" | "dps" | "can" | "kix";
 
 interface RouteConfig {
   key: RouteKey;
@@ -24,11 +24,13 @@ interface RouteConfig {
 }
 
 export default function RouteView({
-  nrtData, cnxData, dpsData,
+  nrtData, cnxData, dpsData, canData, kixData,
 }: {
   nrtData: FlightRecord[];
   cnxData: FlightRecord[];
   dpsData: FlightRecord[];
+  canData: FlightRecord[];
+  kixData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
     {
@@ -57,6 +59,24 @@ export default function RouteView({
       schedule: "11:00 ICT",
       data: dpsData,
       accent: "#7C3AED", accentBg: "#F1D4FF", accentBorder: "#C4B5FD",
+    },
+    {
+      key: "can",
+      label: "BKK → CAN",
+      sublabel: "กรุงเทพ → กว่างโจว",
+      meta: "บินตรง · 3 สายการบินถูกสุด | ส.ค.–ก.ย. 2026 | 5 วัน 4 คืน",
+      schedule: "12:00 ICT",
+      data: canData,
+      accent: "#EA580C", accentBg: "#FFE8D6", accentBorder: "#FDBA74",
+    },
+    {
+      key: "kix",
+      label: "BKK → KIX",
+      sublabel: "กรุงเทพ → โอซาก้า",
+      meta: "บินตรง · 3 สายการบินถูกสุด | ธ.ค. 2026–ก.พ. 2027 | 7 วัน 6 คืน",
+      schedule: "13:00 ICT",
+      data: kixData,
+      accent: "#BE185D", accentBg: "#FCE0EC", accentBorder: "#F9A8D4",
     },
   ];
 

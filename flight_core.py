@@ -44,6 +44,8 @@ DEP_RE   = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M$")
 ARR_RE   = re.compile(r"^\d{1,2}:\d{2}\s*[AP]M(\+\d)?$")
 DUR_RE   = re.compile(r"^\d+\s*hr(\s*\d+\s*min)?$")
 PRICE_RE = re.compile(r"THB\s*([\d,]+)")
+NONSTOP_RE = re.compile(r"^nonstop$", re.I)
+STOPS_RE   = re.compile(r"^(\d+)\s*stop", re.I)
 
 
 # ── Parsing ─────────────────────────────────────────────────────────────────
@@ -71,11 +73,19 @@ def iter_fares(text: str, gf_link: str) -> Iterator[tuple[str, dict]]:
         if not name or len(name) > 60:
             continue
         price = None
+        stops = None  # 0 = nonstop, N = N stops, None = not detected
         for j in range(i, min(i + 12, len(lines))):
-            m = PRICE_RE.match(lines[j])
-            if m:
-                price = int(m.group(1).replace(",", ""))
-                break
+            if stops is None:
+                if NONSTOP_RE.match(lines[j]):
+                    stops = 0
+                else:
+                    sm = STOPS_RE.match(lines[j])
+                    if sm:
+                        stops = int(sm.group(1))
+            if price is None:
+                m = PRICE_RE.match(lines[j])
+                if m:
+                    price = int(m.group(1).replace(",", ""))
         if price is None:
             continue
         yield name, {
@@ -83,6 +93,7 @@ def iter_fares(text: str, gf_link: str) -> Iterator[tuple[str, dict]]:
             "dep_time": lines[i],
             "arr_time": lines[i + 2],
             "duration": lines[i + 4],
+            "stops":    stops,
             "gf_link":  gf_link,
         }
 

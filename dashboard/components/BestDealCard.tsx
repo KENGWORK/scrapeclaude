@@ -21,8 +21,8 @@ interface Props {
 export default function BestDealCards({ data, routeKey, accentColor, accentBg, accentBorder }: Props) {
   if (!data.length) return null;
   if (routeKey === "nrt") return <NrtCards data={data} />;
-  if (routeKey === "cnx") return <CnxCards data={data} accentColor={accentColor} accentBg={accentBg} accentBorder={accentBorder} />;
-  return null;
+  // cnx / can / kix all show top-3 cheapest from latest scrape
+  return <CnxCards data={data} accentColor={accentColor} accentBg={accentBg} accentBorder={accentBorder} />;
 }
 
 function NrtCards({ data }: { data: FlightRecord[] }) {
