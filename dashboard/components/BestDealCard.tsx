@@ -21,8 +21,8 @@ interface Props {
 export default function BestDealCards({ data, routeKey, accentColor, accentBg, accentBorder }: Props) {
   if (!data.length) return null;
   if (routeKey === "nrt") return <NrtCards data={data} />;
-  // cnx / can / kix all show top-3 cheapest from latest scrape
-  return <CnxCards data={data} accentColor={accentColor} accentBg={accentBg} accentBorder={accentBorder} />;
+  // kix shows top-3 cheapest from latest scrape
+  return <TopDealCards data={data} accentColor={accentColor} accentBg={accentBg} accentBorder={accentBorder} />;
 }
 
 function NrtCards({ data }: { data: FlightRecord[] }) {
@@ -42,7 +42,7 @@ function NrtCards({ data }: { data: FlightRecord[] }) {
   );
 }
 
-function CnxCards({ data, accentColor, accentBg, accentBorder }: {
+function TopDealCards({ data, accentColor, accentBg, accentBorder }: {
   data: FlightRecord[]; accentColor: string; accentBg: string; accentBorder: string;
 }) {
   const latestScrape = data.reduce((a, b) => a.scrape_date > b.scrape_date ? a : b, data[0])?.scrape_date ?? "";

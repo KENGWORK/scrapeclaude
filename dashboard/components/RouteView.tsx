@@ -6,10 +6,9 @@ import type { FlightRecord } from "@/app/api/flights/route";
 import BestDealCards from "./BestDealCard";
 import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
-import DpsPriceCard from "./DpsPriceCard";
 import FlightModal from "./FlightModal";
 
-export type RouteKey = "nrt" | "cnx" | "dps" | "can" | "kix";
+export type RouteKey = "nrt" | "kix";
 
 interface RouteConfig {
   key: RouteKey;
@@ -24,12 +23,9 @@ interface RouteConfig {
 }
 
 export default function RouteView({
-  nrtData, cnxData, dpsData, canData, kixData,
+  nrtData, kixData,
 }: {
   nrtData: FlightRecord[];
-  cnxData: FlightRecord[];
-  dpsData: FlightRecord[];
-  canData: FlightRecord[];
   kixData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
@@ -41,33 +37,6 @@ export default function RouteView({
       schedule: "14:00 & 23:00 ICT",
       data: nrtData,
       accent: "#1D4ED8", accentBg: "#D4FAFF", accentBorder: "#93C5FD",
-    },
-    {
-      key: "cnx",
-      label: "BKK → CNX",
-      sublabel: "กรุงเทพ → เชียงใหม่",
-      meta: "3 สายการบินถูกสุด | พ.ย. 2026–ม.ค. 2027 | 5 วัน 4 คืน",
-      schedule: "11:00 ICT",
-      data: cnxData,
-      accent: "#15803D", accentBg: "#D7F5D3", accentBorder: "#86EFAC",
-    },
-    {
-      key: "dps",
-      label: "HKT → DPS",
-      sublabel: "ภูเก็ต → บาหลี",
-      meta: "Indonesia AirAsia | 1–9 ก.ย. 2026 | 8 วัน 7 คืน",
-      schedule: "11:00 ICT",
-      data: dpsData,
-      accent: "#7C3AED", accentBg: "#F1D4FF", accentBorder: "#C4B5FD",
-    },
-    {
-      key: "can",
-      label: "BKK → CAN",
-      sublabel: "กรุงเทพ → กว่างโจว",
-      meta: "บินตรง · 3 สายการบินถูกสุด | ส.ค.–ก.ย. 2026 | 5 วัน 4 คืน",
-      schedule: "12:00 ICT",
-      data: canData,
-      accent: "#EA580C", accentBg: "#FFE8D6", accentBorder: "#FDBA74",
     },
     {
       key: "kix",
@@ -85,7 +54,6 @@ export default function RouteView({
 
   const route = routes.find((r) => r.key === activeKey)!;
   const data = route.data;
-  const isDps = activeKey === "dps";
 
   const latestScrape = data.length
     ? data.reduce((a, b) => (a.scrape_date > b.scrape_date ? a : b)).scrape_date
@@ -250,18 +218,12 @@ export default function RouteView({
             <div className="space-y-6">
 
               {/* Best deals */}
-              {isDps ? (
-                <DpsPriceCard data={data} accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
-              ) : (
-                <>
-                  <SectionLabel icon={<TrendingDown size={13} />} title="ราคาถูกสุด" color={route.accent} />
-                  <BestDealCards data={data} routeKey={activeKey}
-                    accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
-                </>
-              )}
+              <SectionLabel icon={<TrendingDown size={13} />} title="ราคาถูกสุด" color={route.accent} />
+              <BestDealCards data={data} routeKey={activeKey}
+                accentColor={route.accent} accentBg={route.accentBg} accentBorder={route.accentBorder} />
 
               {/* Charts */}
-              {!isDps && <PriceByDepartureChart data={data} routeKey={activeKey} accentColor={route.accent} />}
+              <PriceByDepartureChart data={data} routeKey={activeKey} accentColor={route.accent} />
               <PriceHistoryChart data={data} routeKey={activeKey} accentColor={route.accent} />
 
               {/* Data table */}

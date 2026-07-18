@@ -19,7 +19,7 @@ dashboard reads, both authenticate with the same service-account JSON.
 
 ### Scrapers
 
-`flight_core.py` is the shared engine; the three `*_monitor.py` files are thin
+`flight_core.py` is the shared engine; the two `*_monitor.py` files are thin
 route scripts that import it. Keep this split — `flight_core` holds everything
 that was once copy-pasted across routes:
 
@@ -39,28 +39,24 @@ Each route script supplies only what genuinely differs and nothing more:
 | Route | File | Worksheet | Query / selection | Output |
 |-------|------|-----------|-------------------|--------|
 | BKK→NRT | `flights_monitor.py` | `FlightPrices` (A:I) | one filtered query per fixed carrier (ANA/JAL/THAI) | 3-airline table + 3-line chart |
-| BKK→CNX | `bkk_cnx_monitor.py` | `BKKCNXPrices` (A:I) | one query/date, top-N cheapest any carrier | top-N table + 1-line chart |
-| HKT→DPS | `hkt_dps_monitor.py` | `HKTDPSPrices` (A:H) | single fixed date pair, AirAsia only | single-fare card, prev-day delta, no chart |
-| BKK→CAN | `bkk_can_monitor.py` | `BKKCANPrices` (A:I) | one query/date `…nonstop`, top-N cheapest **direct** carriers | top-N table + 1-line chart |
 | BKK→KIX | `bkk_kix_monitor.py` | `BKKKIXPrices` (A:I) | one query/date `…nonstop`, top-N cheapest **direct** carriers | top-N table + 1-line chart |
 
-Direct-only routes (CAN/KIX) filter twice: the query appends `nonstop` (Google
+The direct-only route (KIX) filters twice: the query appends `nonstop` (Google
 pre-filter) and `cheapest_direct_per_airline` drops any fare `iter_fares` tags
 with `stops >= 1`. `iter_fares` now yields a `stops` field (0 = nonstop, N, or
 `None` when the page text didn't expose it); `None` is kept — the URL filter is
 trusted when the text is silent.
 
 The email HTML layouts are deliberately *not* shared — they differ enough that a
-common builder would be more complex than three. Don't merge them.
+common builder would be more complex than two. Don't merge them.
 
 ### Dashboard
 
-Next.js 14 App Router. `app/page.tsx` server-fetches all five worksheets in
-parallel (`FlightPrices!A:I`, `BKKCNXPrices!A:I`, `HKTDPSPrices!A:H`,
-`BKKCANPrices!A:I`, `BKKKIXPrices!A:I`) and passes them to
+Next.js 14 App Router. `app/page.tsx` server-fetches both worksheets in
+parallel (`FlightPrices!A:I`, `BKKKIXPrices!A:I`) and passes them to
 `components/RouteView.tsx` (sidebar + content layout, modal on row "ดูราคา").
-CAN/KIX reuse the CNX rendering path (top-3, dynamic carriers). Charts use `recharts`. `app/api/flights/`
-and `app/api/cnx/` expose the same data as JSON routes. Sheet reads are cached
+KIX renders top-3 with dynamic carriers; NRT renders its three fixed carriers.
+Charts use `recharts`. `app/api/flights/` exposes the same data as a JSON route. Sheet reads are cached
 1h (`revalidate = 3600`); the `FlightRecord` type in `api/flights/route.ts` is
 the canonical row shape and must stay in sync with the scrapers' header lists.
 
@@ -72,7 +68,7 @@ Vercel):
 
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD` — Gmail SMTP sender (app password, not login).
 - `GOOGLE_SERVICE_ACCOUNT_JSON` — service-account credentials, raw JSON.
-- `GOOGLE_SHEET_ID` — the one spreadsheet holding all three worksheets.
+- `GOOGLE_SHEET_ID` — the one spreadsheet holding both worksheets.
 
 ## Commands
 
@@ -81,15 +77,16 @@ Scrapers (need the env vars above; otherwise import fails immediately):
 ```bash
 pip install -r requirements.txt
 playwright install chromium          # first run only
-python flights_monitor.py            # or bkk_cnx_monitor.py / hkt_dps_monitor.py
+python flights_monitor.py            # or bkk_kix_monitor.py
 
 python -m py_compile flight_core.py *_monitor.py   # syntax check, no env needed
 ```
 
 There is no test suite. To validate parser/selection logic without network,
 exercise `flight_core.iter_fares` and a route's reduction (`match_airline`,
-`cheapest_per_airline`, `cheapest_airasia`) against a synthetic body string
-built with the `dep / - / arr / name / dur / - / "THB n"` line layout.
+`cheapest_direct_per_airline`) against a synthetic body string built with the
+`dep / - / arr / name / dur / stops / "THB n"` line layout. `test_nonstop.py`
+does exactly this for the nonstop filter — run it with dummy env vars.
 
 Dashboard (`cd dashboard`):
 
@@ -102,9 +99,8 @@ npm run build
 ## Schedules
 
 GitHub Actions cron in `.github/workflows/`, times in UTC (ICT = UTC+7):
-`daily_flights.yml` (NRT, 16:00 & 07:00 UTC), `bkk_cnx_flights.yml` (CNX,
-04:00 UTC), `hkt_dps_flights.yml` (DPS, 04:00 UTC, runs with `python -X utf8`
-for the Thai text). Workflows invoke the scripts by filename — renaming a
+`daily_flights.yml` (NRT, 16:00 & 07:00 UTC) and `bkk_kix_flights.yml` (KIX,
+06:00 UTC). Workflows invoke the scripts by filename — renaming a
 `*_monitor.py` means updating its workflow too.
 
 ## Adding a route

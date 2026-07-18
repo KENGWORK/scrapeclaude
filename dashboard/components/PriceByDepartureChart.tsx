@@ -11,7 +11,7 @@ const NRT_SERIES = [
   { key: "JAL",  color: "#DC2626" },
   { key: "THAI", color: "#9333EA" },
 ];
-const CNX_PALETTE = ["#15803D", "#D97706", "#1D4ED8", "#DC2626", "#9333EA"];
+const TOP_PALETTE = ["#15803D", "#D97706", "#1D4ED8", "#DC2626", "#9333EA"];
 
 interface Props { data: FlightRecord[]; routeKey: RouteKey; accentColor: string; }
 
@@ -32,9 +32,9 @@ export default function PriceByDepartureChart({ data, routeKey, accentColor }: P
     chartData = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))
       .map(([date, prices]) => ({ date: date.slice(5), ...prices }));
   } else {
-    // cnx / can / kix — dynamic airlines, top cheapest per departure
+    // kix — dynamic airlines, top cheapest per departure
     const airlines = Array.from(new Set(latest.map((r) => r.airline)));
-    series = airlines.map((a, i) => ({ key: a, color: CNX_PALETTE[i % CNX_PALETTE.length] }));
+    series = airlines.map((a, i) => ({ key: a, color: TOP_PALETTE[i % TOP_PALETTE.length] }));
     const byDate: Record<string, Record<string, number>> = {};
     latest.forEach((r) => {
       if (!byDate[r.departure_date]) byDate[r.departure_date] = {};

@@ -1,9 +1,9 @@
 """Synthetic test: nonstop detection in iter_fares + direct-only filter.
 Run: GMAIL_USER=x GMAIL_APP_PASSWORD=x GOOGLE_SERVICE_ACCOUNT_JSON={} GOOGLE_SHEET_ID=x python -X utf8 test_nonstop.py
-No network. Validates parser + bkk_can_monitor reduction.
+No network. Validates parser + bkk_kix_monitor reduction.
 """
 import flight_core as core
-import bkk_can_monitor as can
+import bkk_kix_monitor as kix
 
 
 def fare(dep, arr, name, dur, stops_line, price):
@@ -23,7 +23,7 @@ print("total fares parsed:", len(fares))
 for name, f in fares:
     print(f"  {name:18} THB{f['price']:>6,}  stops={f['stops']}")
 
-direct = can.cheapest_direct_per_airline(body, "http://x")
+direct = kix.cheapest_direct_per_airline(body, "http://x")
 print("direct-only cheapest per airline:")
 for name, f in sorted(direct.items(), key=lambda x: x[1]["price"]):
     print(f"  {name:18} THB{f['price']:>6,}  stops={f['stops']}")
@@ -41,7 +41,7 @@ assert ranked[0][0] == "Thai AirAsia", "cheapest direct overall = AirAsia 8500"
 
 # Undetected-stops case kept (URL trusted)
 body2 = "7:40 AM\n-\n1:30 PM\nJAL\n5 hr 50 min\nThai\nTHB 12,000\n"
-d2 = can.cheapest_direct_per_airline(body2, "http://x")
+d2 = kix.cheapest_direct_per_airline(body2, "http://x")
 assert d2.get("JAL", {}).get("price") == 12000, "undetected stops must be kept"
 
 print("ALL ASSERTIONS PASSED")
