@@ -40,14 +40,15 @@ async function fetchSheet(range: string): Promise<FlightRecord[]> {
 }
 
 export default async function HomePage() {
-  const [nrtData, kixData] = await Promise.all([
+  const [nrtData, kixData, hrbData] = await Promise.all([
     fetchSheet("FlightPrices!A:I"),
     fetchSheet("BKKKIXPrices!A:I"),
+    fetchSheet("BKKHRBPrices!A:I"),
   ]);
 
   return (
     <main>
-      <RouteView nrtData={nrtData} kixData={kixData} />
+      <RouteView nrtData={nrtData} kixData={kixData} hrbData={hrbData} />
     </main>
   );
 }

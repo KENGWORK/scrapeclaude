@@ -8,7 +8,7 @@ import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
 import FlightModal from "./FlightModal";
 
-export type RouteKey = "nrt" | "kix";
+export type RouteKey = "nrt" | "kix" | "hrb";
 
 interface RouteConfig {
   key: RouteKey;
@@ -23,10 +23,11 @@ interface RouteConfig {
 }
 
 export default function RouteView({
-  nrtData, kixData,
+  nrtData, kixData, hrbData,
 }: {
   nrtData: FlightRecord[];
   kixData: FlightRecord[];
+  hrbData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
     {
@@ -46,6 +47,15 @@ export default function RouteView({
       schedule: "13:00 ICT",
       data: kixData,
       accent: "#BE185D", accentBg: "#FCE0EC", accentBorder: "#F9A8D4",
+    },
+    {
+      key: "hrb",
+      label: "BKK → HRB",
+      sublabel: "กรุงเทพ → ฮาร์บิน",
+      meta: "Full Service · 3 สายการบินถูกสุด | ม.ค.–ก.พ. 2027 | 8 วัน 7 คืน",
+      schedule: "15:00 ICT",
+      data: hrbData,
+      accent: "#283593", accentBg: "#E0E4FF", accentBorder: "#9FA8DA",
     },
   ];
 
