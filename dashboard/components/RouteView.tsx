@@ -8,7 +8,7 @@ import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
 import FlightModal from "./FlightModal";
 
-export type RouteKey = "nrt" | "kix" | "hrb";
+export type RouteKey = "nrt" | "kix" | "hrb" | "aat";
 
 interface RouteConfig {
   key: RouteKey;
@@ -23,11 +23,12 @@ interface RouteConfig {
 }
 
 export default function RouteView({
-  nrtData, kixData, hrbData,
+  nrtData, kixData, hrbData, aatData,
 }: {
   nrtData: FlightRecord[];
   kixData: FlightRecord[];
   hrbData: FlightRecord[];
+  aatData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
     {
@@ -56,6 +57,15 @@ export default function RouteView({
       schedule: "15:00 ICT",
       data: hrbData,
       accent: "#283593", accentBg: "#E0E4FF", accentBorder: "#9FA8DA",
+    },
+    {
+      key: "aat",
+      label: "BKK → AAT",
+      sublabel: "กรุงเทพ → อัลไต",
+      meta: "Full Service · 3 สายการบินถูกสุด | ก.พ.–มี.ค. 2027 | 9 วัน 8 คืน",
+      schedule: "16:00 ICT",
+      data: aatData,
+      accent: "#00695C", accentBg: "#DBF0EC", accentBorder: "#80CBC4",
     },
   ];
 
