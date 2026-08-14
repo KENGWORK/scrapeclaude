@@ -108,10 +108,9 @@ npm run build
 ## Schedules
 
 GitHub Actions cron in `.github/workflows/`, times in UTC (ICT = UTC+7):
-`daily_flights.yml` (NRT, 16:00 & 07:00 UTC), `bkk_kix_flights.yml` (KIX,
-06:00 UTC), `bkk_hrb_flights.yml` (HRB, 08:00 UTC), and `bkk_aat_flights.yml`
-(AAT, 09:00 UTC). Workflows invoke the
-scripts by filename — renaming a
+all four run once daily at `18:00 UTC` (01:00 ICT): `daily_flights.yml` (NRT),
+`bkk_kix_flights.yml` (KIX), `bkk_hrb_flights.yml` (HRB), and
+`bkk_aat_flights.yml` (AAT). Workflows invoke the scripts by filename — renaming a
 `*_monitor.py` means updating its workflow too.
 
 ## Adding a route

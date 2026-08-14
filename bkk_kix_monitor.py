@@ -3,7 +3,7 @@
 BKK → KIX Flight Price Monitor (direct flights only)
 Airlines : Top-3 cheapest among nonstop carriers
 Dates    : Dec 15 2026 – Feb 15 2027  (7 days / 6 nights round-trip)
-Schedule : Daily 13:00 ICT via GitHub Actions
+Schedule : Daily 01:00 ICT via GitHub Actions
 Storage  : Google Sheets worksheet "BKKKIXPrices"
 Engine   : flight_core (scrape + sheets + email shared across routes)
 """

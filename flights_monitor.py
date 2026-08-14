@@ -3,7 +3,7 @@
 BKK → NRT Flight Price Monitor
 Airlines : ANA, JAL, Thai Airways (fixed carriers, one filtered query each)
 Dates    : Jan 15 – Feb 15 2027  (8 days / 7 nights round-trip)
-Schedule : Daily 23:00 ICT via GitHub Actions
+Schedule : Daily 01:00 ICT via GitHub Actions
 Storage  : Google Sheets worksheet "FlightPrices"
 Engine   : flight_core (scrape + sheets + email shared across routes)
 """

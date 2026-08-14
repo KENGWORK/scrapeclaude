@@ -2,8 +2,7 @@ name: BKK-NRT Flight Monitor
 
 on:
   schedule:
-    - cron: '0 16 * * *'   # 23:00 ICT (UTC+7)
-    - cron: '0 7 * * *'    # 14:00 ICT (UTC+7)
+    - cron: '0 18 * * *'   # 01:00 ICT (UTC+7)
   workflow_dispatch:
 
 jobs:

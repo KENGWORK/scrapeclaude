@@ -3,7 +3,7 @@
 BKK → AAT Flight Price Monitor (full-service carriers only)
 Airlines : Top-3 cheapest among full-service carriers (whitelist below)
 Dates    : Feb 1 2027 – Mar 5 2027  (9 days / 8 nights round-trip)
-Schedule : Daily 16:00 ICT via GitHub Actions
+Schedule : Daily 01:00 ICT via GitHub Actions
 Storage  : Google Sheets worksheet "BKKAATPrices"
 Engine   : flight_core (scrape + sheets + email shared across routes)
 """

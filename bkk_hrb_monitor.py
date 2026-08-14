@@ -3,7 +3,7 @@
 BKK → HRB Flight Price Monitor (full-service carriers only)
 Airlines : Top-3 cheapest among full-service carriers (whitelist below)
 Dates    : Jan 5 2027 – Feb 28 2027  (8 days / 7 nights round-trip)
-Schedule : Daily 15:00 ICT via GitHub Actions
+Schedule : Daily 01:00 ICT via GitHub Actions
 Storage  : Google Sheets worksheet "BKKHRBPrices"
 Engine   : flight_core (scrape + sheets + email shared across routes)
 """
