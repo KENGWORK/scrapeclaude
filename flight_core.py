@@ -121,6 +121,19 @@ async def scrape_body(browser: Browser, url: str,
                 return "", True
             if re.search(r"\d+\s+results?\s+returned", body) and "THB" in body:
                 break
+
+        # Google Flights sometimes collapses the tail of the list behind a
+        # "More flights" expander — those itineraries are missing from
+        # inner_text until it's clicked. Best-effort: click it if present.
+        try:
+            more_btn = page.get_by_role("button", name=re.compile(r"more flights", re.I))
+            if await more_btn.count():
+                await more_btn.first.click(timeout=3_000)
+                await page.wait_for_timeout(3_000)
+                body = await page.inner_text("body")
+        except Exception:
+            pass
+
         return body, False
     finally:
         await ctx.close()
