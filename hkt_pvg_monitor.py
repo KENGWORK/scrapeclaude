@@ -35,11 +35,15 @@ def build_q_url() -> str:
 def cheapest_shanghai_airlines(body: str, gf_link: str) -> dict | None:
     """Cheapest fare whose airline name matches Shanghai Airlines."""
     best = None
+    seen = []
     for name, fare in core.iter_fares(body, gf_link):
+        seen.append(name)
         if AIRLINE_KEY not in name.lower():
             continue
         if best is None or fare["price"] < best["price"]:
             best = {**fare, "airline": name}
+    if best is None:
+        print(f"  DEBUG airlines seen: {sorted(set(seen))}")
     return best
 
 
