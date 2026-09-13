@@ -17,7 +17,7 @@ DEP_DATE = date(2026, 10, 31)
 RET_DATE = date(2026, 11, 3)
 
 ORIGIN, DEST = "HKT", "PVG"
-RECIPIENTS = "kenglao2903@hotmail.com"
+RECIPIENTS = ["kenglao2903@hotmail.com", "Sanamjang2000@hotmail.com"]
 SHEET_NAME = "HKTPVGPrices"
 HEADERS = ["scrape_date", "departure_date", "return_date", "airline",
            "price_thb", "dep_time", "arr_time", "duration", "gf_link"]
