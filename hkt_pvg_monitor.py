@@ -37,13 +37,15 @@ def cheapest_shanghai_airlines(body: str, gf_link: str) -> dict | None:
     best = None
     seen = []
     for name, fare in core.iter_fares(body, gf_link):
-        seen.append(name)
+        seen.append((name, fare["price"], fare["stops"], fare["dep_time"]))
         if AIRLINE_KEY not in name.lower():
             continue
         if best is None or fare["price"] < best["price"]:
             best = {**fare, "airline": name}
     if best is None:
-        print(f"  DEBUG airlines seen: {sorted(set(seen))}")
+        print(f"  DEBUG {len(seen)} fares seen (name, price, stops, dep):")
+        for row in sorted(seen, key=lambda r: r[1]):
+            print(f"    {row}")
     return best
 
 
