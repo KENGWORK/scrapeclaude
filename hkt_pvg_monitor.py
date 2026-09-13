@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HKT → PVG Flight Price Monitor (Shanghai Airlines only)
+HKT → PVG Flight Price Monitor (Shanghai Airlines / China Eastern Airlines only)
 Fixed trip : Depart 2026-10-31, Return 2026-11-03 (4 days / 3 nights)
 Schedule   : Daily 01:00 ICT via GitHub Actions
 Storage    : Google Sheets worksheet "HKTPVGPrices"
@@ -22,7 +22,7 @@ SHEET_NAME = "HKTPVGPrices"
 HEADERS = ["scrape_date", "departure_date", "return_date", "airline",
            "price_thb", "dep_time", "arr_time", "duration", "gf_link"]
 
-AIRLINE_KEY = "shanghai airlines"
+AIRLINE_KEYS = ["shanghai airlines", "china eastern"]
 
 
 def build_q_url() -> str:
@@ -33,12 +33,13 @@ def build_q_url() -> str:
 # ── Scraper ─────────────────────────────────────────────────────────────────
 
 def cheapest_shanghai_airlines(body: str, gf_link: str) -> dict | None:
-    """Cheapest fare whose airline name matches Shanghai Airlines."""
+    """Cheapest fare whose airline name matches Shanghai Airlines or China Eastern."""
     best = None
     seen = []
     for name, fare in core.iter_fares(body, gf_link):
         seen.append((name, fare["price"], fare["stops"], fare["dep_time"]))
-        if AIRLINE_KEY not in name.lower():
+        n = name.lower()
+        if not any(key in n for key in AIRLINE_KEYS):
             continue
         if best is None or fare["price"] < best["price"]:
             best = {**fare, "airline": name}
@@ -66,7 +67,7 @@ def build_html(info: dict | None, prev_price: int | None) -> str:
     if info is None:
         body_html = f"""
 <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px 20px">
-  <div style="color:#e65100;font-size:16px;font-weight:bold">ไม่พบราคา Shanghai Airlines วันนี้</div>
+  <div style="color:#e65100;font-size:16px;font-weight:bold">ไม่พบราคา Shanghai Airlines / China Eastern วันนี้</div>
   <p style="color:#555">อาจถูก rate-limit หรือไม่มีเที่ยวบิน กรุณาตรวจสอบด้วยตัวเอง</p>
   <a href="{build_q_url()}" target="_blank"
      style="display:inline-block;background:#e65100;color:white;padding:8px 16px;
@@ -104,7 +105,7 @@ def build_html(info: dict | None, prev_price: int | None) -> str:
 </div>"""
 
     return f"""<html><body style="font-family:Arial,sans-serif;padding:20px">
-<h2 style="color:#e65100">&#9992; HKT → PVG | Shanghai Airlines | ราคาวันนี้</h2>
+<h2 style="color:#e65100">&#9992; HKT → PVG | Shanghai Airlines / China Eastern | ราคาวันนี้</h2>
 <p style="color:#555;font-size:13px">ข้อมูล ณ {now} | ราคา THB ต่อคน รวมภาษี</p>
 {body_html}
 <p style="color:#bbb;font-size:11px;margin-top:20px">ดึงข้อมูลจาก Google Flights | github actions</p>
@@ -140,7 +141,7 @@ async def main():
         print("No result found")
 
     try:
-        subject = f"HKT-PVG Shanghai Airlines ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
+        subject = f"HKT-PVG Shanghai Airlines/China Eastern ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
         core.send_email(subject, build_html(info, prev_price), RECIPIENTS)
     except Exception as exc:
         print(f"Email failed (data still saved): {exc}")
