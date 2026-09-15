@@ -26,7 +26,13 @@ AIRLINE_KEYS = ["shanghai airlines", "china eastern"]
 
 
 def build_q_url() -> str:
-    q = f"Flights to {DEST} from {ORIGIN} on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()}"
+    # "nonstop" matters here: without it Google's free-text query only ever
+    # returned 1-2 stop connections (50 fares checked, none stops=0) even
+    # though the wanted flight is a direct HKT-PVG the user confirmed by
+    # screenshot. KIX's route script found the same thing for its direct-only
+    # filter.
+    q = (f"Flights to {DEST} from {ORIGIN} "
+         f"on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()} nonstop")
     return core.gf_url(q)
 
 
