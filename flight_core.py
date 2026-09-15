@@ -123,16 +123,19 @@ async def scrape_body(browser: Browser, url: str,
                 break
 
         # Google Flights sometimes collapses the tail of the list behind a
-        # "More flights" expander — those itineraries are missing from
-        # inner_text until it's clicked. Best-effort: click it if present.
-        try:
-            more_btn = page.get_by_role("button", name=re.compile(r"more flights", re.I))
-            if await more_btn.count():
+        # "More flights" expander, and can reveal it in more than one
+        # tranche (a fresh "More flights" button reappears after a click).
+        # Best-effort: keep clicking while it's present, up to a few rounds.
+        for _ in range(4):
+            try:
+                more_btn = page.get_by_role("button", name=re.compile(r"more flights", re.I))
+                if not await more_btn.count():
+                    break
                 await more_btn.first.click(timeout=3_000)
                 await page.wait_for_timeout(3_000)
                 body = await page.inner_text("body")
-        except Exception:
-            pass
+            except Exception:
+                break
 
         return body, False
     finally:

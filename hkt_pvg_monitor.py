@@ -26,13 +26,11 @@ AIRLINE_KEYS = ["shanghai airlines", "china eastern"]
 
 
 def build_q_url() -> str:
-    # "nonstop" matters here: without it Google's free-text query only ever
-    # returned 1-2 stop connections (50 fares checked, none stops=0) even
-    # though the wanted flight is a direct HKT-PVG the user confirmed by
-    # screenshot. KIX's route script found the same thing for its direct-only
-    # filter.
-    q = (f"Flights to {DEST} from {ORIGIN} "
-         f"on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()} nonstop")
+    # NOTE: appending "nonstop" here made Google return 0 results for this
+    # route/date pair (tried and reverted) — the NLU parser doesn't handle
+    # it the way it does for bkk_kix_monitor. Leave the query plain; the
+    # nonstop Shanghai/China Eastern fare is filtered for after scraping.
+    q = f"Flights to {DEST} from {ORIGIN} on {DEP_DATE.isoformat()} through {RET_DATE.isoformat()}"
     return core.gf_url(q)
 
 
