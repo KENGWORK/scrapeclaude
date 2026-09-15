@@ -32,14 +32,22 @@ def build_q_url() -> str:
 
 # ── Scraper ─────────────────────────────────────────────────────────────────
 
+def is_wanted_airline(name: str) -> bool:
+    """True only if EVERY carrier in the (possibly codeshare) name is
+    Shanghai Airlines / China Eastern — rejects combos like "Bangkok
+    Airways, Condor, China Eastern" that are unrelated multi-leg
+    connections, not an actual Shanghai/China Eastern operated flight."""
+    parts = [p.strip().lower() for p in name.split(",")]
+    return bool(parts) and all(any(key in p for key in AIRLINE_KEYS) for p in parts)
+
+
 def cheapest_shanghai_airlines(body: str, gf_link: str) -> dict | None:
     """Cheapest fare whose airline name matches Shanghai Airlines or China Eastern."""
     best = None
     seen = []
     for name, fare in core.iter_fares(body, gf_link):
         seen.append((name, fare["price"], fare["stops"], fare["dep_time"]))
-        n = name.lower()
-        if not any(key in n for key in AIRLINE_KEYS):
+        if not is_wanted_airline(name):
             continue
         if best is None or fare["price"] < best["price"]:
             best = {**fare, "airline": name}
