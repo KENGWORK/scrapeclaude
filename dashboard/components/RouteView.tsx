@@ -7,6 +7,7 @@ import BestDealCards from "./BestDealCard";
 import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
 import FlightModal from "./FlightModal";
+import { skyscannerUrl } from "@/lib/skyscanner";
 
 export type RouteKey = "nrt" | "kix" | "hrb" | "aat";
 
@@ -16,6 +17,7 @@ interface RouteConfig {
   sublabel: string;
   meta: string;
   schedule: string;
+  skyscanner?: { origin: string; dest: string };
   data: FlightRecord[];
   accent: string;
   accentBg: string;
@@ -55,6 +57,7 @@ export default function RouteView({
       sublabel: "กรุงเทพ → ฮาร์บิน",
       meta: "3 สายการบินถูกสุด | ม.ค.–ก.พ. 2027 | 8 วัน 7 คืน",
       schedule: "01:00 ICT",
+      skyscanner: { origin: "BKK", dest: "HRB" },
       data: hrbData,
       accent: "#283593", accentBg: "#E0E4FF", accentBorder: "#9FA8DA",
     },
@@ -64,6 +67,7 @@ export default function RouteView({
       sublabel: "กรุงเทพ → อัลไต",
       meta: "3 สายการบินถูกสุด | ก.พ.–มี.ค. 2027 | 9 วัน 8 คืน",
       schedule: "01:00 ICT",
+      skyscanner: { origin: "BKK", dest: "AAT" },
       data: aatData,
       accent: "#00695C", accentBg: "#DBF0EC", accentBorder: "#80CBC4",
     },
@@ -260,6 +264,12 @@ export default function RouteView({
         accentColor={route.accent}
         accentBg={route.accentBg}
         accentBorder={route.accentBorder}
+        skyscannerLink={
+          modalRecord && route.skyscanner
+            ? skyscannerUrl(route.skyscanner.origin, route.skyscanner.dest,
+                            modalRecord.departure_date, modalRecord.return_date)
+            : null
+        }
         onClose={() => setModalRecord(null)}
       />
     </>

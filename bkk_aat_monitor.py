@@ -98,6 +98,11 @@ def build_best_box(best: dict | None) -> str:
             text-decoration:none;padding:8px 16px;border-radius:8px;font-size:13px">
     ดูบน Google Flights ->
   </a>
+  <a href="{core.skyscanner_url(ORIGIN, DEST, best['dep_date'], best['ret_date'])}" target="_blank"
+     style="display:inline-block;margin-top:10px;margin-left:6px;background:white;color:#00695c;
+            border:1px solid #00695c;text-decoration:none;padding:7px 16px;border-radius:8px;font-size:13px">
+    เทียบบน Skyscanner ->
+  </a>
 </div>"""
 
 
@@ -121,9 +126,12 @@ def build_html(all_results: dict[date, list]) -> str:
                       f'<small style="color:#777">{detail}</small> {link}</td>')
         for _ in range(TOP_N - len(ranked)):
             cells += '<td style="color:#bbb;text-align:center;padding:6px 10px">–</td>'
+        sky = core.skyscanner_url(ORIGIN, DEST, dep, ret)
         rows += (f"<tr><td style='padding:6px 10px'>{dep.strftime('%a %d %b')}</td>"
                  f"<td style='padding:6px 10px'>{ret.strftime('%a %d %b')}</td>"
-                 f"{cells}</tr>")
+                 f"{cells}"
+                 f"<td style='padding:6px 10px;text-align:center'>"
+                 f"<a href=\"{sky}\" target=\"_blank\">&#128279;</a></td></tr>")
 
     hdrs = "".join(
         f'<th style="background:#37474f;color:white;padding:8px 10px">&#127775; อันดับ {i+1}</th>'
@@ -140,6 +148,7 @@ def build_html(all_results: dict[date, list]) -> str:
     <th style="background:#37474f;color:white;padding:8px 10px">วันออกเดินทาง</th>
     <th style="background:#37474f;color:white;padding:8px 10px">วันกลับ</th>
     {hdrs}
+    <th style="background:#37474f;color:white;padding:8px 10px">Skyscanner</th>
   </tr></thead>
   <tbody>{rows}</tbody>
 </table>

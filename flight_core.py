@@ -59,6 +59,14 @@ def gf_url(query: str) -> str:
             + urllib.parse.quote(query) + "&hl=en-US&curr=THB&gl=TH")
 
 
+def skyscanner_url(origin: str, dest: str, dep, ret) -> str:
+    """Prefilled Skyscanner search link (Skyscanner itself is bot-gated, so
+    we link out instead of scraping). dep/ret are date objects."""
+    return (f"https://www.skyscanner.co.th/transport/flights/{origin.lower()}/{dest.lower()}/"
+            f"{dep:%y%m%d}/{ret:%y%m%d}/?adultsv2=1&cabinclass=economy&rtn=1"
+            f"&currency=THB&market=TH&locale=th-TH")
+
+
 def iter_fares(text: str, gf_link: str) -> Iterator[tuple[str, dict]]:
     """Yield (airline_name, fare) for every dep/arr/duration/price block found.
 

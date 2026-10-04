@@ -8,6 +8,7 @@ interface Props {
   accentColor: string;
   accentBg: string;
   accentBorder: string;
+  skyscannerLink?: string | null;
   onClose: () => void;
 }
 
@@ -17,7 +18,7 @@ const AIRLINE_COLOR: Record<string, string> = {
   THAI: "#9333EA",
 };
 
-export default function FlightModal({ record, accentColor, accentBg, accentBorder, onClose }: Props) {
+export default function FlightModal({ record, accentColor, accentBg, accentBorder, skyscannerLink, onClose }: Props) {
   useEffect(() => {
     if (!record) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -128,6 +129,18 @@ export default function FlightModal({ record, accentColor, accentBg, accentBorde
                  style={{ background: "var(--color-surface-2)", color: "var(--color-muted)" }}>
               ไม่มีลิงก์
             </div>
+          )}
+          {skyscannerLink && (
+            <a
+              href={skyscannerLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-colors hover:bg-gray-50 cursor-pointer"
+              style={{ border: `1.5px solid ${color}`, color }}
+            >
+              <ExternalLink size={15} />
+              Skyscanner
+            </a>
           )}
           <button
             onClick={onClose}

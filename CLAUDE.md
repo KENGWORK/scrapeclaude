@@ -49,6 +49,13 @@ with `stops >= 1`. `iter_fares` now yields a `stops` field (0 = nonstop, N, or
 `None` when the page text didn't expose it); `None` is kept — the URL filter is
 trusted when the text is silent.
 
+Skyscanner is **not** scraped: it serves a "Are you a person or a robot?"
+CAPTCHA to headless browsers, and bypassing it is off the table. HRB and AAT
+instead link out to a prefilled Skyscanner search for each date pair
+(`flight_core.skyscanner_url` in emails, `dashboard/lib/skyscanner.ts` in the
+detail modal). A real price feed would need an official API (Skyscanner
+Partners, or another provider such as Amadeus).
+
 The email HTML layouts are deliberately *not* shared — they differ enough that a
 common builder would be more complex than four. Don't merge them.
 
