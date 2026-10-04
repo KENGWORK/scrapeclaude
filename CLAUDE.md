@@ -40,19 +40,14 @@ Each route script supplies only what genuinely differs and nothing more:
 |-------|------|-----------|-------------------|--------|
 | BKK→NRT | `flights_monitor.py` | `FlightPrices` (A:I) | one filtered query per fixed carrier (ANA/JAL/THAI) | 3-airline table + 3-line chart |
 | BKK→KIX | `bkk_kix_monitor.py` | `BKKKIXPrices` (A:I) | one query/date `…nonstop`, top-N cheapest **direct** carriers | top-N table + 1-line chart |
-| BKK→HRB | `bkk_hrb_monitor.py` | `BKKHRBPrices` (A:I) | one query/date, top-N cheapest **full-service** carriers only | top-N table + 1-line chart |
-| BKK→AAT | `bkk_aat_monitor.py` | `BKKAATPrices` (A:I) | one query/date, top-N cheapest **full-service** carriers only | top-N table + 1-line chart |
+| BKK→HRB | `bkk_hrb_monitor.py` | `BKKHRBPrices` (A:I) | one query/date, top-N cheapest carriers (any airline) | top-N table + 1-line chart |
+| BKK→AAT | `bkk_aat_monitor.py` | `BKKAATPrices` (A:I) | one query/date, top-N cheapest carriers (any airline) | top-N table + 1-line chart |
 
 The direct-only route (KIX) filters twice: the query appends `nonstop` (Google
 pre-filter) and `cheapest_direct_per_airline` drops any fare `iter_fares` tags
 with `stops >= 1`. `iter_fares` now yields a `stops` field (0 = nonstop, N, or
 `None` when the page text didn't expose it); `None` is kept — the URL filter is
 trusted when the text is silent.
-
-HRB and AAT filter by carrier name instead of stops: Google Flights has no
-full-service/LCC flag in the page text, so `FULL_SERVICE_AIRLINES` in each
-route script is a name whitelist (substring, case-insensitive) — extend it if
-a route needs a carrier not already listed.
 
 The email HTML layouts are deliberately *not* shared — they differ enough that a
 common builder would be more complex than four. Don't merge them.
@@ -92,10 +87,10 @@ python -m py_compile flight_core.py *_monitor.py   # syntax check, no env needed
 
 There is no test suite. To validate parser/selection logic without network,
 exercise `flight_core.iter_fares` and a route's reduction (`match_airline`,
-`cheapest_direct_per_airline`, `cheapest_full_service_per_airline`) against a
-synthetic body string built with the `dep / - / arr / name / dur / stops /
-"THB n"` line layout. `test_nonstop.py` and `test_fullservice.py` do exactly
-this — run them with dummy env vars.
+`cheapest_direct_per_airline`, `cheapest_per_airline`) against a synthetic
+body string built with the `dep / - / arr / name / dur / stops / "THB n"` line
+layout. `test_nonstop.py` does exactly this for the KIX direct filter — run it
+with dummy env vars.
 
 Dashboard (`cd dashboard`):
 

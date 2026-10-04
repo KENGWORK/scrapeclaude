@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-BKK → HRB Flight Price Monitor (full-service carriers only)
-Airlines : Top-3 cheapest among full-service carriers (whitelist below)
+BKK → HRB Flight Price Monitor (any carrier, top-3 cheapest)
+Airlines : Top-3 cheapest, any carrier
 Dates    : Jan 5 2027 – Feb 28 2027  (8 days / 7 nights round-trip)
 Schedule : Daily 01:00 ICT via GitHub Actions
 Storage  : Google Sheets worksheet "BKKHRBPrices"
@@ -31,19 +31,6 @@ SHEET_NAME = "BKKHRBPrices"
 HEADERS = ["scrape_date", "departure_date", "return_date", "airline",
            "price_thb", "dep_time", "arr_time", "duration", "gf_link"]
 
-# Full-service carriers plausible on BKK-HRB (direct or via CN hub connections).
-# Google Flights has no full-service/LCC flag in the page text, so we filter
-# by name. Match is substring/case-insensitive against the rendered airline
-# name (which sometimes concatenates codeshare names, e.g. "China Eastern").
-FULL_SERVICE_AIRLINES = [
-    "thai airways", "thai smile",
-    "china southern", "china eastern", "air china", "xiamen air",
-    "hainan airlines", "shenzhen airlines", "shandong airlines",
-    "cathay pacific", "cathay", "eva air", "china airlines",
-    "korean air", "asiana", "singapore airlines", "all nippon", "ana",
-    "japan airlines", "jal",
-]
-
 
 def build_q_url(dep: date, ret: date) -> str:
     q = f"Flights to {DEST} from {ORIGIN} on {dep.isoformat()} through {ret.isoformat()}"
@@ -52,17 +39,10 @@ def build_q_url(dep: date, ret: date) -> str:
 
 # ── Scraper ─────────────────────────────────────────────────────────────────
 
-def is_full_service(name: str) -> bool:
-    n = name.lower()
-    return any(fs in n for fs in FULL_SERVICE_AIRLINES)
-
-
-def cheapest_full_service_per_airline(body: str, gf_link: str) -> dict[str, dict]:
-    """Cheapest fare per airline, keeping only full-service carriers."""
+def cheapest_per_airline(body: str, gf_link: str) -> dict[str, dict]:
+    """Cheapest fare per airline, any carrier."""
     result: dict[str, dict] = {}
     for name, fare in core.iter_fares(body, gf_link):
-        if not is_full_service(name):
-            continue
         if name not in result or fare["price"] < result[name]["price"]:
             result[name] = fare
     return result
@@ -73,7 +53,7 @@ async def scrape_date(browser, dep_date: date) -> list[tuple[str, dict]]:
     url = build_q_url(dep_date, ret_date)
 
     def extract(body, gf_link):
-        ranked = sorted(cheapest_full_service_per_airline(body, gf_link).items(),
+        ranked = sorted(cheapest_per_airline(body, gf_link).items(),
                         key=lambda x: x[1]["price"])[:TOP_N]
         return ranked or None
 
@@ -103,7 +83,7 @@ def build_best_box(best: dict | None) -> str:
     return f"""
 <div style="background:#e8eaf6;border:2px solid #283593;border-radius:12px;
             padding:16px 20px;margin:16px 0">
-  <div style="color:#283593;font-size:13px;font-weight:bold">&#127942; ช่วงที่ถูกที่สุด (Full Service)</div>
+  <div style="color:#283593;font-size:13px;font-weight:bold">&#127942; ช่วงที่ถูกที่สุด</div>
   <div style="font-size:28px;font-weight:900;color:#283593;margin:4px 0">
     &#3647;{best['price']:,}
     <span style="font-size:16px;font-weight:700;color:#555">({best['airline']})</span>
@@ -150,8 +130,8 @@ def build_html(all_results: dict[date, list]) -> str:
         for i in range(TOP_N))
 
     return f"""<html><body style="font-family:Arial,sans-serif;padding:20px">
-<h2 style="color:#283593">&#9992;&#65039; ราคาตั๋ว BKK -> HRB (ไป-กลับ 8 วัน / 7 คืน, Full Service)</h2>
-<p style="color:#555">ข้อมูล ณ {now} | ราคา THB ต่อคน รวมภาษี | แสดง 3 สายการบินถูกสุดต่อวัน (เฉพาะ Full Service)</p>
+<h2 style="color:#283593">&#9992;&#65039; ราคาตั๋ว BKK -> HRB (ไป-กลับ 8 วัน / 7 คืน)</h2>
+<p style="color:#555">ข้อมูล ณ {now} | ราคา THB ต่อคน รวมภาษี | แสดง 3 สายการบินถูกสุดต่อวัน</p>
 {best_box}
 <h3 style="color:#283593;margin-top:20px">&#128203; ราคาทุกช่วง</h3>
 <table border="1" cellpadding="0" cellspacing="0"
@@ -181,7 +161,7 @@ def build_chart_png(all_results: dict[date, list]) -> bytes | None:
     ax.set_xticklabels([d.strftime("%d %b") for d in deps],
                        rotation=45, ha="right", fontsize=8)
     ax.set_ylabel("Price (THB)")
-    ax.set_title("BKK -> HRB full-service round-trip cheapest price by departure date")
+    ax.set_title("BKK -> HRB round-trip cheapest price by departure date")
     ax.legend()
     ax.grid(True, alpha=0.3)
     ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: f"{int(v):,}"))
@@ -238,7 +218,7 @@ async def main():
     print(f"{len(sheet_rows)} rows written to Sheets")
 
     try:
-        subject = f"BKK-HRB ราคาวันนี้ (Full Service) | {datetime.now().strftime('%d/%m/%Y')}"
+        subject = f"BKK-HRB ราคาวันนี้ | {datetime.now().strftime('%d/%m/%Y')}"
         core.send_email(subject, build_html(all_results), RECIPIENTS,
                         chart_png=build_chart_png(all_results))
     except Exception as exc:
