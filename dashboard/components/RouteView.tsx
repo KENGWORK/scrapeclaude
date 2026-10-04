@@ -8,7 +8,7 @@ import PriceByDepartureChart from "./PriceByDepartureChart";
 import PriceHistoryChart from "./PriceHistoryChart";
 import FlightModal from "./FlightModal";
 
-export type RouteKey = "nrt" | "kix" | "hrb" | "aat" | "pvg";
+export type RouteKey = "nrt" | "kix" | "hrb" | "aat";
 
 interface RouteConfig {
   key: RouteKey;
@@ -23,13 +23,12 @@ interface RouteConfig {
 }
 
 export default function RouteView({
-  nrtData, kixData, hrbData, aatData, pvgData,
+  nrtData, kixData, hrbData, aatData,
 }: {
   nrtData: FlightRecord[];
   kixData: FlightRecord[];
   hrbData: FlightRecord[];
   aatData: FlightRecord[];
-  pvgData: FlightRecord[];
 }) {
   const routes: RouteConfig[] = [
     {
@@ -67,15 +66,6 @@ export default function RouteView({
       schedule: "01:00 ICT",
       data: aatData,
       accent: "#00695C", accentBg: "#DBF0EC", accentBorder: "#80CBC4",
-    },
-    {
-      key: "pvg",
-      label: "HKT → PVG",
-      sublabel: "ภูเก็ต → เซี่ยงไฮ้",
-      meta: "Shanghai Airlines | 31 ต.ค.–3 พ.ย. 2026 | 4 วัน 3 คืน",
-      schedule: "01:00 ICT",
-      data: pvgData,
-      accent: "#B91C1C", accentBg: "#FEE2E2", accentBorder: "#FCA5A5",
     },
   ];
 
